@@ -1,7 +1,7 @@
-# GoGnmi
+# gNMI Telemetry Exporter
 
 ## Introduction
-GoGnmi is a tool for exporting gNMI streaming telemetries to Prometheus in a data-model-aware way.  
+**GtExporter** is a tool for exporting gNMI streaming telemetries to Prometheus in a data-model-aware way.  
 The application is designed around these three objects:
 - The ```GnmiClient``` manages the gNMI session to the monitored device and subscribes the 
 required xPath by the ```Schema Plugins```. 
@@ -18,3 +18,6 @@ This project is currently under development. Features and database schema can ch
 
 ## Getting Started
 This [configuration template file](config-keys.yaml) describes the supported configuration keys.
+
+## License
+Licensed under MIT license. See [LICENSE](LICENSE).
