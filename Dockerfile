@@ -9,4 +9,4 @@ FROM ubuntu:24.04
 
 COPY --from=builder /app/build/* /usr/local/bin
 
-ENTRYPOINT ["go-gnmi-exporter"]
+ENTRYPOINT ["gtexporter"]
