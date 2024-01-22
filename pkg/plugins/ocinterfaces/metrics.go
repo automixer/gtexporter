@@ -20,9 +20,7 @@ type ocIfMetric struct {
 	Description string `label:"description"`
 	AdminStatus string `label:"admin_status"`
 	OperStatus  string `label:"oper_status"`
-	LagSpeed    string `label:"lag_speed"`
 	LagType     string `label:"lag_type"`
-	LagMinLinks string `label:"lag_min_links"`
 }
 
 // newIfMetric creates a new ocIfMetric with the given metric type.
