@@ -195,10 +195,16 @@ func (c *Core) buildPluginCfg(yCfg *yamlConfig, index int) {
 	for _, plugName := range src.Plugins {
 		// String values
 		newPlug := plugins.Config{
-			DevName:     src.Keys["name"],
-			PlugName:    plugName,
-			CustomLabel: src.Keys["custom_label"],
+			DevName:      src.Keys["name"],
+			PlugName:     plugName,
+			CustomLabel:  src.Keys["custom_label"],
+			DescSanitize: src.Keys["desc_sanitize"],
 		}
+		// Default string values
+		if newPlug.DescSanitize == "" {
+			newPlug.DescSanitize = "[a-zA-Z0-9_:\\-/]"
+		}
+
 		// Bool values
 		flag, _ := strconv.ParseBool(src.Keys["use_go_defaults"])
 		newPlug.UseGoDefaults = flag

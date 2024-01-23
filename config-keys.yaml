@@ -39,6 +39,9 @@ devices:
     use_go_defaults: false          # Flag. If true, all the leaves of the YANG schema are always sent to Prometheus,
                                     # even if not received from the device.
                                     # USE WITH CAUTION. This setting can produce very high db cardinality levels.
+    desc_sanitize: <string>         # Regex pattern of device description fields allowed characters. Defaults to
+                                    # "[a-zA-Z0-9_:\\-/]". Any character in the description that doesn't match this
+                                    # pattern will be removed
 
     # gNMI related keys:
     force_encoding: proto           # Force the gNMI client to use a specific encoding. Acceptable values are:

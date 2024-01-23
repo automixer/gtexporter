@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ygot/ygot"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -29,6 +30,7 @@ type ocIfParser struct {
 	plugins.ParserMon
 	yStruct *ocif.Root
 	eMapper *ocif.EnumMapper
+	rxSD    *regexp.Regexp
 }
 
 func newParser(cfg plugins.Config) (plugins.Parser, error) {
@@ -40,6 +42,11 @@ func newParser(cfg plugins.Config) (plugins.Parser, error) {
 		Interface: make(map[string]*ocif.Interface, yStructInitialSize),
 	}
 	p.eMapper = ocif.NewEnumMapper()
+	var err error
+	p.rxSD, err = regexp.Compile(cfg.DescSanitize)
+	if err != nil {
+		return nil, err
+	}
 	return p, nil
 }
 
@@ -191,6 +198,11 @@ func (p *ocIfParser) getPathMeta(pfx, path *gnmi.Path) (*pathMetadata, error) {
 	return out, nil
 }
 
+func (p *ocIfParser) sanitizeDescription(s string) string {
+	matches := p.rxSD.FindAllString(s, -1)
+	return strings.Join(matches, "")
+}
+
 // ifStateCounters parses the content of the /interface/state/counters YANG container
 func (p *ocIfParser) ifStateCounters(nf *gnmi.Notification, updNum int) {
 	pathMeta, err := p.getPathMeta(nf.Prefix, nf.Update[updNum].Path)
@@ -280,7 +292,7 @@ func (p *ocIfParser) ifState(nf *gnmi.Notification, updNum int) {
 	case "cpu":
 		target.Cpu = ygot.Bool(source.GetBoolVal())
 	case "description":
-		target.Description = ygot.String(source.GetStringVal())
+		target.Description = ygot.String(p.sanitizeDescription(source.GetStringVal()))
 	case "enabled":
 		target.Enabled = ygot.Bool(source.GetBoolVal())
 	case "ifindex":
@@ -451,7 +463,7 @@ func (p *ocIfParser) subIfState(nf *gnmi.Notification, updNum int) {
 	case "cpu":
 		target.Cpu = ygot.Bool(source.GetBoolVal())
 	case "description":
-		target.Description = ygot.String(source.GetStringVal())
+		target.Description = ygot.String(p.sanitizeDescription(source.GetStringVal()))
 	case "enabled":
 		target.Enabled = ygot.Bool(source.GetBoolVal())
 	case "ifindex":
