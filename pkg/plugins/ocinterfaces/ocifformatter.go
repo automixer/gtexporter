@@ -98,16 +98,19 @@ func (f *ocIfFormatter) ifCounters() []exporter.GMetric {
 	for name, iface := range f.root.Interface {
 		var lagType, realName string
 		alias := name
+		kind := kindIface
 
 		// Check if the interface is a LAG
 		if f.lagSet[name] {
 			lagType = iface.GetAggregation().GetLagType().ShortString()
+			kind = kindIfaceLag
 		}
 
 		// Check if the interface is a LAG member
 		if _, ok := f.lagTable[name]; ok {
 			realName = name
 			alias = f.lagTable[name]
+			kind = kindIfaceLagMember
 		}
 
 		// Set counters pull mode
@@ -124,6 +127,7 @@ func (f *ocIfFormatter) ifCounters() []exporter.GMetric {
 		for counterName, counterValue := range ifCnt {
 			metric := f.newIfMetric(prometheus.CounterValue)
 			// Labels
+			metric.Kind = kind.String()
 			metric.IfName = alias
 			metric.IfRealName = realName
 			metric.SnmpIndex = fmt.Sprint(iface.GetIfindex())
@@ -151,6 +155,7 @@ func (f *ocIfFormatter) ifGauges() []exporter.GMetric {
 	for name, iface := range f.root.Interface {
 		var lagType, realName string
 		alias := name
+		kind := kindIface
 
 		// Build gauges value map
 		gauges := map[string]float64{
@@ -164,18 +169,21 @@ func (f *ocIfFormatter) ifGauges() []exporter.GMetric {
 		// Check if the interface is a LAG
 		if f.lagSet[name] {
 			lagType = iface.GetAggregation().GetLagType().ShortString()
+			kind = kindIfaceLag
 		}
 
 		// Check if the interface is a LAG member
 		if _, ok := f.lagTable[name]; ok {
 			realName = name
 			alias = f.lagTable[name]
+			kind = kindIfaceLagMember
 		}
 
 		// Build gauge metrics
 		for gaugeName, gaugeValue := range gauges {
 			metric := f.newIfMetric(prometheus.GaugeValue)
 			// Labels
+			metric.Kind = kind.String()
 			metric.IfName = alias
 			metric.IfRealName = realName
 			metric.SnmpIndex = fmt.Sprint(iface.GetIfindex())
@@ -203,16 +211,19 @@ func (f *ocIfFormatter) subIfCounters() []exporter.GMetric {
 	for name, iface := range f.root.Interface {
 		var lagType, realName string
 		alias := name
+		kind := kindSubIface
 
 		// Check if the interface is a LAG
 		if f.lagSet[name] {
 			lagType = iface.GetAggregation().GetLagType().ShortString()
+			kind = kindSubIfaceLag
 		}
 
 		// Check if the interface is a LAG member
 		if _, ok := f.lagTable[name]; ok {
 			realName = name
 			alias = f.lagTable[name]
+			kind = kindSubIfaceLagMember
 		}
 
 		// Set counters pull mode
@@ -231,6 +242,7 @@ func (f *ocIfFormatter) subIfCounters() []exporter.GMetric {
 			for counterName, counterValue := range ifCnt {
 				metric := f.newIfMetric(prometheus.CounterValue)
 				// Labels
+				metric.Kind = kind.String()
 				metric.IfName = alias
 				metric.IfRealName = realName
 				metric.IfIndex = fmt.Sprint(index)
@@ -259,16 +271,19 @@ func (f *ocIfFormatter) subIfGauges() []exporter.GMetric {
 	for name, iface := range f.root.Interface {
 		var lagType, realName string
 		alias := name
+		kind := kindSubIface
 
 		// Check if the interface is a LAG
 		if f.lagSet[name] {
 			lagType = iface.GetAggregation().GetLagType().ShortString()
+			kind = kindSubIfaceLag
 		}
 
 		// Check if the interface is a LAG member
 		if _, ok := f.lagTable[name]; ok {
 			realName = name
 			alias = f.lagTable[name]
+			kind = kindSubIfaceLagMember
 		}
 
 		// Walk subinterfaces
@@ -284,6 +299,7 @@ func (f *ocIfFormatter) subIfGauges() []exporter.GMetric {
 			for gaugeName, gaugeValue := range gauges {
 				metric := f.newIfMetric(prometheus.GaugeValue)
 				// Labels
+				metric.Kind = kind.String()
 				metric.IfName = alias
 				metric.IfRealName = realName
 				metric.IfIndex = fmt.Sprint(index)
