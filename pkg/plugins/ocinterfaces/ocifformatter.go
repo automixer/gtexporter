@@ -127,11 +127,15 @@ func (f *ocIfFormatter) ifCounters() []exporter.GMetric {
 			metric.IfName = alias
 			metric.IfRealName = realName
 			metric.SnmpIndex = fmt.Sprint(iface.GetIfindex())
-			metric.Description = iface.GetDescription()
 			metric.AdminStatus = iface.GetAdminStatus().ShortString()
 			metric.OperStatus = iface.GetOperStatus().ShortString()
 			metric.IfType = iface.GetType().ShortString()
 			metric.LagType = lagType
+			if desc := iface.GetDescription(); desc == "" {
+				metric.Description = alias
+			} else {
+				metric.Description = desc
+			}
 			// Values
 			metric.Metric = counterName
 			metric.Value = counterValue
@@ -175,11 +179,15 @@ func (f *ocIfFormatter) ifGauges() []exporter.GMetric {
 			metric.IfName = alias
 			metric.IfRealName = realName
 			metric.SnmpIndex = fmt.Sprint(iface.GetIfindex())
-			metric.Description = iface.GetDescription()
 			metric.AdminStatus = iface.GetAdminStatus().ShortString()
 			metric.OperStatus = iface.GetOperStatus().ShortString()
 			metric.IfType = iface.GetType().ShortString()
 			metric.LagType = lagType
+			if desc := iface.GetDescription(); desc == "" {
+				metric.Description = alias
+			} else {
+				metric.Description = desc
+			}
 			// Values
 			metric.Metric = gaugeName
 			metric.Value = gaugeValue
@@ -227,10 +235,14 @@ func (f *ocIfFormatter) subIfCounters() []exporter.GMetric {
 				metric.IfRealName = realName
 				metric.IfIndex = fmt.Sprint(index)
 				metric.SnmpIndex = fmt.Sprint(subIface.GetIfindex())
-				metric.Description = subIface.GetDescription()
 				metric.AdminStatus = subIface.GetAdminStatus().ShortString()
 				metric.OperStatus = subIface.GetOperStatus().ShortString()
 				metric.LagType = lagType
+				if desc := subIface.GetDescription(); desc == "" {
+					metric.Description = fmt.Sprint(index)
+				} else {
+					metric.Description = desc
+				}
 				// Values
 				metric.Metric = counterName
 				metric.Value = counterValue
@@ -276,10 +288,14 @@ func (f *ocIfFormatter) subIfGauges() []exporter.GMetric {
 				metric.IfRealName = realName
 				metric.IfIndex = fmt.Sprint(index)
 				metric.SnmpIndex = fmt.Sprint(subIface.GetIfindex())
-				metric.Description = subIface.GetDescription()
 				metric.AdminStatus = subIface.GetAdminStatus().ShortString()
 				metric.OperStatus = subIface.GetOperStatus().ShortString()
 				metric.LagType = lagType
+				if desc := subIface.GetDescription(); desc == "" {
+					metric.Description = fmt.Sprint(index)
+				} else {
+					metric.Description = desc
+				}
 				// Values
 				metric.Metric = gaugeName
 				metric.Value = gaugeValue
