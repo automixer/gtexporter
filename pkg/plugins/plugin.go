@@ -41,6 +41,7 @@ type Config struct {
 	DevName        string
 	PlugName       string
 	CustomLabel    string
+	DescSanitize   string
 	UseGoDefaults  bool
 	CacheData      bool
 	ScrapeInterval time.Duration

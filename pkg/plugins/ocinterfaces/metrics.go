@@ -7,9 +7,43 @@ import (
 	"github.com/automixer/gtexporter/pkg/exporter"
 )
 
+// ifKind is a custom type representing different kinds of interfaces.
+type ifKind int
+
+// String returns the string representation of the ifKind enum.
+func (k ifKind) String() string {
+	switch k {
+	case kindIface:
+		return "iface"
+	case kindIfaceLag:
+		return "iface_lag"
+	case kindIfaceLagMember:
+		return "iface_lag_member"
+	case kindSubIface:
+		return "sub_iface"
+	case kindSubIfaceLag:
+		return "sub_iface_lag"
+	case kindSubIfaceLagMember:
+		return "sub_iface_lag_member"
+	default:
+		return "unknown"
+	}
+}
+
+const (
+	_ ifKind = iota
+	kindIface
+	kindIfaceLag
+	kindIfaceLagMember
+	kindSubIface
+	kindSubIfaceLag
+	kindSubIfaceLagMember
+)
+
 // ocIfMetric represents a metric emitted by the Openconfig Interfaces package.
 type ocIfMetric struct {
 	exporter.MetricCommons
+	Kind        string `label:"kind"`
 	Metric      string `label:"metric"`
 	CustomLabel string `label:"custom_label"`
 	IfName      string `label:"name"`
@@ -20,9 +54,7 @@ type ocIfMetric struct {
 	Description string `label:"description"`
 	AdminStatus string `label:"admin_status"`
 	OperStatus  string `label:"oper_status"`
-	LagSpeed    string `label:"lag_speed"`
 	LagType     string `label:"lag_type"`
-	LagMinLinks string `label:"lag_min_links"`
 }
 
 // newIfMetric creates a new ocIfMetric with the given metric type.

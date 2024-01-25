@@ -96,20 +96,21 @@ func (f *ocIfFormatter) Collect() []exporter.GMetric {
 func (f *ocIfFormatter) ifCounters() []exporter.GMetric {
 	out := make([]exporter.GMetric, 0, len(f.root.Interface))
 	for name, iface := range f.root.Interface {
-		var lagSpeed, lagType, lagMinLinks, realName string
+		var lagType, realName string
 		alias := name
+		kind := kindIface
 
 		// Check if the interface is a LAG
 		if f.lagSet[name] {
-			lagSpeed = fmt.Sprint(iface.GetAggregation().GetLagSpeed())
 			lagType = iface.GetAggregation().GetLagType().ShortString()
-			lagMinLinks = fmt.Sprint(iface.GetAggregation().GetMinLinks())
+			kind = kindIfaceLag
 		}
 
 		// Check if the interface is a LAG member
 		if _, ok := f.lagTable[name]; ok {
 			realName = name
 			alias = f.lagTable[name]
+			kind = kindIfaceLagMember
 		}
 
 		// Set counters pull mode
@@ -126,16 +127,19 @@ func (f *ocIfFormatter) ifCounters() []exporter.GMetric {
 		for counterName, counterValue := range ifCnt {
 			metric := f.newIfMetric(prometheus.CounterValue)
 			// Labels
+			metric.Kind = kind.String()
 			metric.IfName = alias
 			metric.IfRealName = realName
 			metric.SnmpIndex = fmt.Sprint(iface.GetIfindex())
-			metric.Description = iface.GetDescription()
 			metric.AdminStatus = iface.GetAdminStatus().ShortString()
 			metric.OperStatus = iface.GetOperStatus().ShortString()
 			metric.IfType = iface.GetType().ShortString()
-			metric.LagSpeed = lagSpeed
 			metric.LagType = lagType
-			metric.LagMinLinks = lagMinLinks
+			if desc := iface.GetDescription(); desc == "" {
+				metric.Description = alias
+			} else {
+				metric.Description = desc
+			}
 			// Values
 			metric.Metric = counterName
 			metric.Value = counterValue
@@ -149,43 +153,49 @@ func (f *ocIfFormatter) ifCounters() []exporter.GMetric {
 func (f *ocIfFormatter) ifGauges() []exporter.GMetric {
 	out := make([]exporter.GMetric, 0, len(f.root.Interface))
 	for name, iface := range f.root.Interface {
-		var lagSpeed, lagType, lagMinLinks, realName string
+		var lagType, realName string
 		alias := name
+		kind := kindIface
 
 		// Build gauges value map
 		gauges := map[string]float64{
-			"last_change": float64(iface.GetLastChange()),
-			"last_clear":  float64(iface.GetCounters().GetLastClear()),
-			"mtu":         float64(iface.GetMtu()),
+			"last_change":   float64(iface.GetLastChange()),
+			"last_clear":    float64(iface.GetCounters().GetLastClear()),
+			"mtu":           float64(iface.GetMtu()),
+			"lag_speed":     float64(iface.GetAggregation().GetLagSpeed()),
+			"lag_min_links": float64(iface.GetAggregation().GetMinLinks()),
 		}
 
 		// Check if the interface is a LAG
 		if f.lagSet[name] {
-			lagSpeed = fmt.Sprint(iface.GetAggregation().GetLagSpeed())
 			lagType = iface.GetAggregation().GetLagType().ShortString()
-			lagMinLinks = fmt.Sprint(iface.GetAggregation().GetMinLinks())
+			kind = kindIfaceLag
 		}
 
 		// Check if the interface is a LAG member
 		if _, ok := f.lagTable[name]; ok {
 			realName = name
 			alias = f.lagTable[name]
+			kind = kindIfaceLagMember
 		}
 
 		// Build gauge metrics
 		for gaugeName, gaugeValue := range gauges {
 			metric := f.newIfMetric(prometheus.GaugeValue)
 			// Labels
+			metric.Kind = kind.String()
 			metric.IfName = alias
 			metric.IfRealName = realName
 			metric.SnmpIndex = fmt.Sprint(iface.GetIfindex())
-			metric.Description = iface.GetDescription()
 			metric.AdminStatus = iface.GetAdminStatus().ShortString()
 			metric.OperStatus = iface.GetOperStatus().ShortString()
 			metric.IfType = iface.GetType().ShortString()
-			metric.LagSpeed = lagSpeed
 			metric.LagType = lagType
-			metric.LagMinLinks = lagMinLinks
+			if desc := iface.GetDescription(); desc == "" {
+				metric.Description = alias
+			} else {
+				metric.Description = desc
+			}
 			// Values
 			metric.Metric = gaugeName
 			metric.Value = gaugeValue
@@ -199,20 +209,21 @@ func (f *ocIfFormatter) ifGauges() []exporter.GMetric {
 func (f *ocIfFormatter) subIfCounters() []exporter.GMetric {
 	out := make([]exporter.GMetric, 0, len(f.root.Interface))
 	for name, iface := range f.root.Interface {
-		var lagSpeed, lagType, lagMinLinks, realName string
+		var lagType, realName string
 		alias := name
+		kind := kindSubIface
 
 		// Check if the interface is a LAG
 		if f.lagSet[name] {
-			lagSpeed = fmt.Sprint(iface.GetAggregation().GetLagSpeed())
 			lagType = iface.GetAggregation().GetLagType().ShortString()
-			lagMinLinks = fmt.Sprint(iface.GetAggregation().GetMinLinks())
+			kind = kindSubIfaceLag
 		}
 
 		// Check if the interface is a LAG member
 		if _, ok := f.lagTable[name]; ok {
 			realName = name
 			alias = f.lagTable[name]
+			kind = kindSubIfaceLagMember
 		}
 
 		// Set counters pull mode
@@ -231,16 +242,19 @@ func (f *ocIfFormatter) subIfCounters() []exporter.GMetric {
 			for counterName, counterValue := range ifCnt {
 				metric := f.newIfMetric(prometheus.CounterValue)
 				// Labels
+				metric.Kind = kind.String()
 				metric.IfName = alias
 				metric.IfRealName = realName
 				metric.IfIndex = fmt.Sprint(index)
 				metric.SnmpIndex = fmt.Sprint(subIface.GetIfindex())
-				metric.Description = subIface.GetDescription()
 				metric.AdminStatus = subIface.GetAdminStatus().ShortString()
 				metric.OperStatus = subIface.GetOperStatus().ShortString()
-				metric.LagSpeed = lagSpeed
 				metric.LagType = lagType
-				metric.LagMinLinks = lagMinLinks
+				if desc := subIface.GetDescription(); desc == "" {
+					metric.Description = fmt.Sprint(index)
+				} else {
+					metric.Description = desc
+				}
 				// Values
 				metric.Metric = counterName
 				metric.Value = counterValue
@@ -255,43 +269,49 @@ func (f *ocIfFormatter) subIfCounters() []exporter.GMetric {
 func (f *ocIfFormatter) subIfGauges() []exporter.GMetric {
 	out := make([]exporter.GMetric, 0, len(f.root.Interface))
 	for name, iface := range f.root.Interface {
-		var lagSpeed, lagType, lagMinLinks, realName string
+		var lagType, realName string
 		alias := name
+		kind := kindSubIface
 
 		// Check if the interface is a LAG
 		if f.lagSet[name] {
-			lagSpeed = fmt.Sprint(iface.GetAggregation().GetLagSpeed())
 			lagType = iface.GetAggregation().GetLagType().ShortString()
-			lagMinLinks = fmt.Sprint(iface.GetAggregation().GetMinLinks())
+			kind = kindSubIfaceLag
 		}
 
 		// Check if the interface is a LAG member
 		if _, ok := f.lagTable[name]; ok {
 			realName = name
 			alias = f.lagTable[name]
+			kind = kindSubIfaceLagMember
 		}
 
 		// Walk subinterfaces
 		for index, subIface := range f.root.Interface[name].Subinterface {
 			// Build gauges value map
 			gauges := map[string]float64{
-				"last_change": float64(subIface.GetLastChange()),
-				"last_clear":  float64(subIface.GetCounters().GetLastClear()),
+				"last_change":   float64(subIface.GetLastChange()),
+				"last_clear":    float64(subIface.GetCounters().GetLastClear()),
+				"lag_speed":     float64(iface.GetAggregation().GetLagSpeed()),
+				"lag_min_links": float64(iface.GetAggregation().GetMinLinks()),
 			}
 			// Build gauge metrics
 			for gaugeName, gaugeValue := range gauges {
 				metric := f.newIfMetric(prometheus.GaugeValue)
 				// Labels
+				metric.Kind = kind.String()
 				metric.IfName = alias
 				metric.IfRealName = realName
 				metric.IfIndex = fmt.Sprint(index)
 				metric.SnmpIndex = fmt.Sprint(subIface.GetIfindex())
-				metric.Description = subIface.GetDescription()
 				metric.AdminStatus = subIface.GetAdminStatus().ShortString()
 				metric.OperStatus = subIface.GetOperStatus().ShortString()
-				metric.LagSpeed = lagSpeed
 				metric.LagType = lagType
-				metric.LagMinLinks = lagMinLinks
+				if desc := subIface.GetDescription(); desc == "" {
+					metric.Description = fmt.Sprint(index)
+				} else {
+					metric.Description = desc
+				}
 				// Values
 				metric.Metric = gaugeName
 				metric.Value = gaugeValue
