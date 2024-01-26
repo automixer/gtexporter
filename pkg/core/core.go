@@ -14,6 +14,7 @@ import (
 
 	// Plugins registration
 	_ "github.com/automixer/gtexporter/pkg/plugins/ocinterfaces"
+	_ "github.com/automixer/gtexporter/pkg/plugins/oclldp"
 )
 
 type Core struct {

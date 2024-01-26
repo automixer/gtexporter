@@ -48,8 +48,8 @@ func (m EnumMapper) GetEnumFromString(s string, e ygot.GoEnum) int64 {
 	return m.eMap[rType][s]
 }
 
-// GoStructToOcIf converts a GoStruct interface to a pointer of a Root struct.
-func GoStructToOcIf(ys ygot.GoStruct) *Root {
+// GoStructToOcLldp converts a GoStruct interface to a pointer of a Root struct.
+func GoStructToOcLldp(ys ygot.GoStruct) *Root {
 	if root, ok := ys.(*Root); ok {
 		return root
 	}
