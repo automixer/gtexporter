@@ -21,6 +21,10 @@ gen_ocif:
 	(cd pkg/datamodels/ocif && go generate && goimports -w ./*)
 .PHONY: gen_ocif
 
+gen_dmoclldp:
+	(cd pkg/datamodels/dmoclldp && go generate && goimports -w ./*)
+.PHONY: gen_dmoclldp
+
 fmt:
 	go fmt ./...
 .PHONY: fmt
