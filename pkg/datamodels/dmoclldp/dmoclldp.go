@@ -56,45 +56,6 @@ func GoStructToOcLldp(ys ygot.GoStruct) *Root {
 	panic("not an ygot interfaces GoStruct")
 }
 
-type CntMode int
-
-const (
-	Normal CntMode = iota
-	UseGoDefault
-)
-
-// GetCountersFromStruct extract a map of counters from a yang container of counters
-func GetCountersFromStruct(s any, mode CntMode) map[string]float64 {
-	if s == nil {
-		return nil
-	}
-	sType := reflect.TypeOf(s)
-	sValue := reflect.ValueOf(s)
-	numField := sType.NumField()
-	out := make(map[string]float64, numField) // Map key: Counter name - Map value: Counter value
-	for i := 0; i < numField; i++ {
-		fieldName := sType.Field(i).Tag.Get("path")
-		if fieldName == "last-clear" {
-			// last clear is not a counter
-			continue
-		}
-		valPtr := sValue.Field(i).Interface().(*uint64)
-		switch mode {
-		case UseGoDefault:
-			if valPtr != nil {
-				out[fieldName] = float64(*valPtr)
-			} else {
-				out[fieldName] = 0.0
-			}
-		default:
-			if valPtr != nil {
-				out[fieldName] = float64(*valPtr)
-			}
-		}
-	}
-	return out
-}
-
 // ShortString returns a short string representation of the E_OpenconfigLldpTypes_LLDP_SYSTEM_CAPABILITY enum value.
 func (e E_OpenconfigLldpTypes_LLDP_SYSTEM_CAPABILITY) ShortString() string {
 	if e == OpenconfigLldpTypes_LLDP_SYSTEM_CAPABILITY_UNSET {

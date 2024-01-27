@@ -50,16 +50,40 @@ func (f *ocLldpFormatter) Describe() []exporter.GMetric {
 
 func (f *ocLldpFormatter) Collect() []exporter.GMetric {
 	out := make([]exporter.GMetric, 0)
-	fakeMetric := f.newLldpIfMetric(prometheus.GaugeValue)
-	fakeMetric.Metric = "fake"
-	out = append(out, fakeMetric)
+	out = append(out, f.lldpIfNbrGauges()...)
 	return out
 }
 
 func (f *ocLldpFormatter) ScrapeEvent(ys ygot.GoStruct) func() {
 	f.root = dmoclldp.GoStructToOcLldp(ys)
-
 	return func() {
 		f.root = nil
 	}
+}
+
+func (f *ocLldpFormatter) lldpIfNbrGauges() []exporter.GMetric {
+	out := make([]exporter.GMetric, 0, len(f.root.GetLldp().Interface))
+	gauges := make(map[string]float64, 3)
+
+	for ifName, ifObject := range f.root.GetLldp().Interface {
+		for _, nbrObject := range ifObject.Neighbor {
+			// Read gauges values from GoStruct
+			gauges["age"] = float64(nbrObject.GetAge())
+			gauges["last_update"] = float64(nbrObject.GetLastUpdate())
+			gauges["ttl"] = float64(nbrObject.GetTtl())
+			// Create metrics
+			for gaugeName, gaugeValue := range gauges {
+				metric := f.newLldpIfMetric(prometheus.GaugeValue)
+				metric.Metric = gaugeName
+				metric.Value = gaugeValue
+				metric.IfName = ifName
+				metric.SystemName = nbrObject.GetSystemName()
+				metric.PortId = nbrObject.GetPortId()
+				metric.PortIdType = nbrObject.GetPortIdType().ShortString()
+				metric.PortDescription = nbrObject.GetPortDescription()
+				out = append(out, metric)
+			}
+		}
+	}
+	return out
 }

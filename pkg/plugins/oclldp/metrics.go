@@ -1,18 +1,21 @@
 package oclldp
 
 import (
-	"github.com/automixer/gtexporter/pkg/exporter"
 	"github.com/prometheus/client_golang/prometheus"
+
+	// Local packages
+	"github.com/automixer/gtexporter/pkg/exporter"
 )
 
 type ocLldpIfMetric struct {
 	exporter.MetricCommons
-	Metric      string `label:"metric"`
-	CustomLabel string `label:"custom_label"`
-	IfName      string `label:"name"`
-	SystemName  string `label:"system_name"`
-	PortId      string `label:"port_id"`
-	PortIdType  string `label:"port_id_type"`
+	Metric          string `label:"metric"`
+	CustomLabel     string `label:"custom_label"`
+	IfName          string `label:"local_if_name"`
+	SystemName      string `label:"nbr_system_name"`
+	PortId          string `label:"nbr_port_id"`
+	PortIdType      string `label:"nbr_port_id_type"`
+	PortDescription string `label:"nbr_port_description"`
 }
 
 // newLldpIfMetric creates a new ocLldpIfMetric with the given metric type.
