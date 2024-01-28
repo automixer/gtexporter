@@ -7,7 +7,7 @@ import (
 	"github.com/automixer/gtexporter/pkg/exporter"
 )
 
-type ocLldpIfMetric struct {
+type ocLldpIfNbrMetric struct {
 	exporter.MetricCommons
 	Metric          string `label:"metric"`
 	CustomLabel     string `label:"custom_label"`
@@ -18,13 +18,12 @@ type ocLldpIfMetric struct {
 	PortDescription string `label:"nbr_port_description"`
 }
 
-// newLldpIfMetric creates a new ocLldpIfMetric with the given metric type.
-func (f *ocLldpFormatter) newLldpIfMetric(mType prometheus.ValueType) ocLldpIfMetric {
-	metric := ocLldpIfMetric{}
+// newLldpIfNbrMetric creates a new ocLldpIfNbrMetric with the given metric type.
+func (f *ocLldpFormatter) newLldpIfNbrMetric(mType prometheus.ValueType) ocLldpIfNbrMetric {
+	metric := ocLldpIfNbrMetric{}
 	// Common fields
-	metric.Source = exporter.SrcPlugin
-	metric.Name = f.config.PlugName
-	metric.Help = "Openconfig LLDP Metric"
+	metric.Name = "oc_lldp_if_nbr"
+	metric.Help = "Openconfig LLDP Interface Neighbors Metric"
 	metric.Device = f.config.DevName
 	metric.Type = mType
 	metric.CustomLabel = f.config.CustomLabel

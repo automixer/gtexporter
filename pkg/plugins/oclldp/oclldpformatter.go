@@ -45,7 +45,7 @@ func (f *ocLldpFormatter) GetPaths() plugins.FormatterPaths {
 }
 
 func (f *ocLldpFormatter) Describe() []exporter.GMetric {
-	return []exporter.GMetric{f.newLldpIfMetric(prometheus.GaugeValue)}
+	return []exporter.GMetric{f.newLldpIfNbrMetric(prometheus.GaugeValue)}
 }
 
 func (f *ocLldpFormatter) Collect() []exporter.GMetric {
@@ -73,7 +73,7 @@ func (f *ocLldpFormatter) lldpIfNbrGauges() []exporter.GMetric {
 			gauges["ttl"] = float64(nbrObject.GetTtl())
 			// Create metrics
 			for gaugeName, gaugeValue := range gauges {
-				metric := f.newLldpIfMetric(prometheus.GaugeValue)
+				metric := f.newLldpIfNbrMetric(prometheus.GaugeValue)
 				metric.Metric = gaugeName
 				metric.Value = gaugeValue
 				metric.IfName = ifName

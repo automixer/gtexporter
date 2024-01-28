@@ -20,8 +20,7 @@ type smMetric struct {
 func newParserMetric(mType prometheus.ValueType, devName string) smMetric {
 	metric := smMetric{}
 	// Common fields
-	metric.Source = exporter.SrcParser
-	metric.Name = "statistics"
+	metric.Name = "plugin_parser"
 	metric.Help = "Plugin parser statistics"
 	metric.Device = devName
 	metric.Type = mType
@@ -32,8 +31,7 @@ func newParserMetric(mType prometheus.ValueType, devName string) smMetric {
 func newFormatterMetric(mType prometheus.ValueType, devName string) smMetric {
 	metric := smMetric{}
 	// Common fields
-	metric.Source = exporter.SrcFormatter
-	metric.Name = "statistics"
+	metric.Name = "plugin_formatter"
 	metric.Help = "Plugin formatter statistics"
 	metric.Device = devName
 	metric.Type = mType

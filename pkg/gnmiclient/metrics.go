@@ -17,8 +17,7 @@ type smMetric struct {
 func (m *clientMon) newMetric(mType prometheus.ValueType) smMetric {
 	metric := smMetric{}
 	// Headers
-	metric.Source = exporter.SrcGnmiClient
-	metric.Name = "statistics"
+	metric.Name = "gnmi_client"
 	metric.Help = "Gnmi client statistics"
 	metric.Device = m.devName
 	metric.Type = mType

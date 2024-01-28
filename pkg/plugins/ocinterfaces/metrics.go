@@ -61,8 +61,7 @@ type ocIfMetric struct {
 func (f *ocIfFormatter) newIfMetric(mType prometheus.ValueType) ocIfMetric {
 	metric := ocIfMetric{}
 	// Common fields
-	metric.Source = exporter.SrcPlugin
-	metric.Name = f.config.PlugName
+	metric.Name = "oc_if"
 	metric.Help = "Openconfig Interfaces Metric"
 	metric.Device = f.config.DevName
 	metric.Type = mType
