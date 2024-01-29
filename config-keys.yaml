@@ -30,7 +30,7 @@ devices:
     tls_insecure_skip_verify: false # Flag. Skip certificate verifications if true.
 
     # Plugins related keys:
-    plugins: [ oc_interfaces ]      # This is the list of the plugin to load. Mandatory.
+    plugins: [oc_interfaces,oc_lldp]  # This is the list of the plugin to load. Mandatory.
     custom_label: my_label          # The value of this key is copied into the emitted metrics "custom_label" label.
     mode: cache                     # If set to "cache" the formatter keeps gNMI notifications data over time.
                                     # The device's gNMI server must support gNMI delete messages to avoid stale entries
