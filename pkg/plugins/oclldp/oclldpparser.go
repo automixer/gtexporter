@@ -9,34 +9,42 @@ import (
 	"strings"
 
 	// Local packages
-	"github.com/automixer/gtexporter/pkg/datamodels/dmoclldp"
+	"github.com/automixer/gtexporter/pkg/datamodels/ysoclldp"
 	"github.com/automixer/gtexporter/pkg/plugins"
 )
 
 const yStructInitialSize = 128
 
+// pathMetadata represents metadata extracted from a path.
+// It contains information about the interface name, neighbor ID, and leaf name.
 type pathMetadata struct {
 	ifName   string
 	nbrId    string
 	leafName string
 }
 
+// ocLldpParser represents a parser for OpenConfig LLDP (Link Layer Discovery Protocol) data.
+// It implements the plugins.Parser interface and includes a ygot structure for storing LLDP data,
+// an EnumMapper for mapping string enum values to their corresponding integer values,
+// and a regular expression used for sanitizing description strings.
 type ocLldpParser struct {
 	plugins.ParserMon
-	yStruct *dmoclldp.Root
-	eMapper *dmoclldp.EnumMapper
+	yStruct *ysoclldp.Root
+	eMapper *ysoclldp.EnumMapper
 	rxSD    *regexp.Regexp
 }
 
+// newParser creates a new ocLldpParser and initializes its fields based on the given configuration.
+// It returns the newly created parser or an error if there was an issue during initialization.
 func newParser(cfg plugins.Config) (plugins.Parser, error) {
 	p := &ocLldpParser{}
 	if err := p.ParserMon.Configure(cfg); err != nil {
 		return nil, err
 	}
-	p.yStruct = &dmoclldp.Root{}
+	p.yStruct = &ysoclldp.Root{}
 	p.yStruct.PopulateDefaults()
-	p.yStruct.Lldp.Interface = make(map[string]*dmoclldp.Lldp_Interface, yStructInitialSize)
-	p.eMapper = dmoclldp.NewEnumMapper()
+	p.yStruct.Lldp.Interface = make(map[string]*ysoclldp.Lldp_Interface, yStructInitialSize)
+	p.eMapper = ysoclldp.NewEnumMapper()
 	var err error
 	p.rxSD, err = regexp.Compile(cfg.DescSanitize)
 	if err != nil {
@@ -45,6 +53,7 @@ func newParser(cfg plugins.Config) (plugins.Parser, error) {
 	return p, nil
 }
 
+// CheckOut returns the yGot structure.
 func (p *ocLldpParser) CheckOut() ygot.GoStruct {
 	if p.yStruct == nil {
 		panic(fmt.Sprint("yGot structure not initialized"))
@@ -52,17 +61,22 @@ func (p *ocLldpParser) CheckOut() ygot.GoStruct {
 	return p.yStruct
 }
 
+// ClearCache resets the yGot structure, populates default values, and initializes the Lldp.Interface map.
 func (p *ocLldpParser) ClearCache() {
-	p.yStruct = &dmoclldp.Root{}
+	p.yStruct = &ysoclldp.Root{}
 	p.yStruct.PopulateDefaults()
-	p.yStruct.Lldp.Interface = make(map[string]*dmoclldp.Lldp_Interface, yStructInitialSize)
+	p.yStruct.Lldp.Interface = make(map[string]*ysoclldp.Lldp_Interface, yStructInitialSize)
 }
 
+// sanitizeDescription removes all non-alphanumeric characters from the given string and returns the result.
 func (p *ocLldpParser) sanitizeDescription(s string) string {
 	matches := p.rxSD.FindAllString(s, -1)
 	return strings.Join(matches, "")
 }
 
+// getPathMeta returns the metadata of the given path by parsing it and extracting the necessary information.
+// The metadata includes the interface name, neighbor ID, and the name of the leaf node.
+// If any of the metadata is missing or the path is invalid, an error is returned.
 func (p *ocLldpParser) getPathMeta(pfx, path *gnmi.Path) (*pathMetadata, error) {
 	var fullPath []string
 	out := &pathMetadata{}
@@ -108,6 +122,7 @@ func (p *ocLldpParser) getPathMeta(pfx, path *gnmi.Path) (*pathMetadata, error) 
 	return out, nil
 }
 
+// ParseNotification analyzes a GNMI notification and calls the appropriate decoding method.
 func (p *ocLldpParser) ParseNotification(nf *gnmi.Notification) {
 	if p.yStruct == nil {
 		panic(fmt.Sprint("yGot structure not initialized"))
@@ -129,6 +144,7 @@ func (p *ocLldpParser) ParseNotification(nf *gnmi.Notification) {
 	}
 }
 
+// removeDbEntry removes the yGot GoStruct entry specified by the given prefix and path.
 func (p *ocLldpParser) removeDbEntry(pfx, path *gnmi.Path) {
 	pathMeta, err := p.getPathMeta(pfx, path)
 	if err != nil {
@@ -147,6 +163,7 @@ func (p *ocLldpParser) removeDbEntry(pfx, path *gnmi.Path) {
 	}
 }
 
+// updHandlerLookup returns the appropriate decoding handler based on the given prefix and path.
 func (p *ocLldpParser) updHandlerLookup(pfx, path *gnmi.Path) func(*gnmi.Notification, int) {
 	sPfx, _ := ygot.PathToSchemaPath(pfx)
 	sPath, _ := ygot.PathToSchemaPath(path)
@@ -171,6 +188,8 @@ func (p *ocLldpParser) updHandlerLookup(pfx, path *gnmi.Path) func(*gnmi.Notific
 	return nil
 }
 
+// lldpIfNbState updates the yGot structure with the information from the GNMI update message for the
+// LLDP neighbor state.
 func (p *ocLldpParser) lldpIfNbState(nf *gnmi.Notification, updNum int) {
 	pathMeta, err := p.getPathMeta(nf.Prefix, nf.Update[updNum].Path)
 	if err != nil {
@@ -206,7 +225,7 @@ func (p *ocLldpParser) lldpIfNbState(nf *gnmi.Notification, updNum int) {
 	case "chassis-id":
 		target.ChassisId = ygot.String(source.GetStringVal())
 	case "chassis-id-type":
-		target.ChassisIdType = dmoclldp.E_OpenconfigLldp_ChassisIdType(
+		target.ChassisIdType = ysoclldp.E_OpenconfigLldp_ChassisIdType(
 			p.eMapper.GetEnumFromString(source.GetStringVal(), target.ChassisIdType))
 	case "id":
 		target.Id = ygot.String(source.GetStringVal())
@@ -221,7 +240,7 @@ func (p *ocLldpParser) lldpIfNbState(nf *gnmi.Notification, updNum int) {
 	case "port-id":
 		target.PortId = ygot.String(source.GetStringVal())
 	case "port-id-type":
-		target.PortIdType = dmoclldp.E_OpenconfigLldp_PortIdType(
+		target.PortIdType = ysoclldp.E_OpenconfigLldp_PortIdType(
 			p.eMapper.GetEnumFromString(source.GetStringVal(), target.PortIdType))
 	case "system-description":
 		target.SystemDescription = ygot.String(source.GetStringVal())

@@ -7,7 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	// Local packages
-	"github.com/automixer/gtexporter/pkg/datamodels/ocif"
+	"github.com/automixer/gtexporter/pkg/datamodels/ysocif"
 	"github.com/automixer/gtexporter/pkg/exporter"
 	"github.com/automixer/gtexporter/pkg/plugins"
 )
@@ -31,7 +31,7 @@ func init() {
 
 type ocIfFormatter struct {
 	config   plugins.Config
-	root     *ocif.Root
+	root     *ysocif.Root
 	lagTable map[string]string // Key: ifName, Value: LAG name
 	lagSet   map[string]bool   // Key: lagName
 }
@@ -54,7 +54,7 @@ func (f *ocIfFormatter) GetPaths() plugins.FormatterPaths {
 // ScrapeEvent implements the plugin's formatter interface.
 // It is called by the plugin when a scrape events occurs.
 func (f *ocIfFormatter) ScrapeEvent(ys ygot.GoStruct) func() {
-	f.root = ocif.GoStructToOcIf(ys)
+	f.root = ysocif.GoStructToOcIf(ys)
 
 	// Build LAG tables
 	f.lagTable = make(map[string]string, 128)
@@ -114,16 +114,16 @@ func (f *ocIfFormatter) ifCounters() []exporter.GMetric {
 		}
 
 		// Set counters pull mode
-		pullMode := ocif.Normal
+		pullMode := ysocif.Normal
 		if f.config.UseGoDefaults {
-			pullMode = ocif.UseGoDefault
+			pullMode = ysocif.UseGoDefault
 		}
 		if f.lagSet[name] {
-			pullMode = ocif.ForceToZero
+			pullMode = ysocif.ForceToZero
 		}
 
 		// Get counters
-		ifCnt := ocif.GetCountersFromStruct(*iface.GetCounters(), pullMode)
+		ifCnt := ysocif.GetCountersFromStruct(*iface.GetCounters(), pullMode)
 		for counterName, counterValue := range ifCnt {
 			metric := f.newIfMetric(prometheus.CounterValue)
 			// Labels
@@ -227,18 +227,18 @@ func (f *ocIfFormatter) subIfCounters() []exporter.GMetric {
 		}
 
 		// Set counters pull mode
-		pullMode := ocif.Normal
+		pullMode := ysocif.Normal
 		if f.config.UseGoDefaults {
-			pullMode = ocif.UseGoDefault
+			pullMode = ysocif.UseGoDefault
 		}
 		if f.lagSet[name] {
-			pullMode = ocif.ForceToZero
+			pullMode = ysocif.ForceToZero
 		}
 
 		// Walk subinterfaces
 		for index, subIface := range f.root.Interface[name].Subinterface {
 			// Get counters
-			ifCnt := ocif.GetCountersFromStruct(*subIface.GetCounters(), pullMode)
+			ifCnt := ysocif.GetCountersFromStruct(*subIface.GetCounters(), pullMode)
 			for counterName, counterValue := range ifCnt {
 				metric := f.newIfMetric(prometheus.CounterValue)
 				// Labels

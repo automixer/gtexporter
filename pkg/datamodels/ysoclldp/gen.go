@@ -1,5 +1,5 @@
 /*
-Package dmoclldp is a generated package which contains definitions
+Package ysoclldp is a generated package which contains definitions
 of structs which represent a YANG schema. The generated schema can be
 compressed by a series of transformations (compression was true
 in this case).
@@ -11,7 +11,7 @@ using the following YANG input files:
 Imported modules were sourced from:
   - yang/...
 */
-package dmoclldp
+package ysoclldp
 
 import (
 	"fmt"

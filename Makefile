@@ -17,13 +17,13 @@ install_ygot_gen:
 	go install github.com/openconfig/ygot/generator@$(YGOT_GEN_VER)
 .PHONY: install_ygot_gen
 
-gen_ocif:
-	(cd pkg/datamodels/ocif && go generate && goimports -w ./*)
-.PHONY: gen_ocif
+gen_ysocif:
+	(cd pkg/datamodels/ysocif && go generate && goimports -w ./*)
+.PHONY: gen_ysocif
 
-gen_dmoclldp:
-	(cd pkg/datamodels/dmoclldp && go generate && goimports -w ./*)
-.PHONY: gen_dmoclldp
+gen_ysoclldp:
+	(cd pkg/datamodels/ysoclldp && go generate && goimports -w ./*)
+.PHONY: gen_ysoclldp
 
 fmt:
 	go fmt ./...

@@ -7,6 +7,16 @@ import (
 	"github.com/automixer/gtexporter/pkg/exporter"
 )
 
+// ocLldpIfNbrMetric represents the Openconfig LLDP Interface Neighbors Metric.
+//
+// Fields:
+// - Metric: Name of the metric.
+// - CustomLabel: Custom label associated with the metric.
+// - IfName: Local interface name.
+// - SystemName: Neighbour system name.
+// - PortId: Neighbour port ID.
+// - PortIdType: Neighbour port ID type.
+// - PortDescription: Neighbour port description.
 type ocLldpIfNbrMetric struct {
 	exporter.MetricCommons
 	Metric          string `label:"metric"`
