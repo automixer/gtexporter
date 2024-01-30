@@ -158,8 +158,6 @@ func (c *Core) buildGnmiClientCfg(yCfg *yamlConfig, index int) {
 	newDev.TLS = flag
 	flag, _ = strconv.ParseBool(src.Keys["tls_insecure_skip_verify"])
 	newDev.TLSInsecureSkipVerify = flag
-	flag, _ = strconv.ParseBool(src.Keys["disable_use_models"])
-	newDev.DisableUseModels = flag
 	flag, _ = strconv.ParseBool(src.Keys["on_change"])
 	if flag {
 		newDev.GnmiSubscriptionMode = gnmi.SubscriptionMode_ON_CHANGE

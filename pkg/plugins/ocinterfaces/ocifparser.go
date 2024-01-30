@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	// Local packages
-	"github.com/automixer/gtexporter/pkg/datamodels/ocif"
+	"github.com/automixer/gtexporter/pkg/datamodels/ysocif"
 	"github.com/automixer/gtexporter/pkg/plugins"
 )
 
@@ -28,8 +28,8 @@ type pathMetadata struct {
 
 type ocIfParser struct {
 	plugins.ParserMon
-	yStruct *ocif.Root
-	eMapper *ocif.EnumMapper
+	yStruct *ysocif.Root
+	eMapper *ysocif.EnumMapper
 	rxSD    *regexp.Regexp
 }
 
@@ -38,10 +38,10 @@ func newParser(cfg plugins.Config) (plugins.Parser, error) {
 	if err := p.ParserMon.Configure(cfg); err != nil {
 		return nil, err
 	}
-	p.yStruct = &ocif.Root{
-		Interface: make(map[string]*ocif.Interface, yStructInitialSize),
+	p.yStruct = &ysocif.Root{
+		Interface: make(map[string]*ysocif.Interface, yStructInitialSize),
 	}
-	p.eMapper = ocif.NewEnumMapper()
+	p.eMapper = ysocif.NewEnumMapper()
 	var err error
 	p.rxSD, err = regexp.Compile(cfg.DescSanitize)
 	if err != nil {
@@ -84,8 +84,8 @@ func (p *ocIfParser) ParseNotification(nf *gnmi.Notification) {
 
 // ClearCache resets the cache of the ocIfParser by creating a new instance of the ocif.Root struct.
 func (p *ocIfParser) ClearCache() {
-	p.yStruct = &ocif.Root{
-		Interface: make(map[string]*ocif.Interface, yStructInitialSize),
+	p.yStruct = &ysocif.Root{
+		Interface: make(map[string]*ysocif.Interface, yStructInitialSize),
 	}
 }
 
@@ -287,7 +287,7 @@ func (p *ocIfParser) ifState(nf *gnmi.Notification, updNum int) {
 	target := p.yStruct.Interface[pathMeta.ifName]
 	switch pathMeta.leafName {
 	case "admin-status":
-		target.AdminStatus = ocif.E_Interface_AdminStatus(
+		target.AdminStatus = ysocif.E_Interface_AdminStatus(
 			p.eMapper.GetEnumFromString(source.GetStringVal(), target.AdminStatus))
 	case "cpu":
 		target.Cpu = ygot.Bool(source.GetBoolVal())
@@ -302,7 +302,7 @@ func (p *ocIfParser) ifState(nf *gnmi.Notification, updNum int) {
 	case "logical":
 		target.Logical = ygot.Bool(source.GetBoolVal())
 	case "loopback-mode":
-		target.LoopbackMode = ocif.E_OpenconfigInterfaces_LoopbackModeType(
+		target.LoopbackMode = ysocif.E_OpenconfigInterfaces_LoopbackModeType(
 			p.eMapper.GetEnumFromString(source.GetStringVal(), target.LoopbackMode))
 	case "management":
 		target.Management = ygot.Bool(source.GetBoolVal())
@@ -311,10 +311,10 @@ func (p *ocIfParser) ifState(nf *gnmi.Notification, updNum int) {
 	case "name":
 		target.Name = ygot.String(source.GetStringVal())
 	case "oper-status":
-		target.OperStatus = ocif.E_Interface_OperStatus(
+		target.OperStatus = ysocif.E_Interface_OperStatus(
 			p.eMapper.GetEnumFromString(source.GetStringVal(), target.OperStatus))
 	case "type":
-		target.Type = ocif.E_IETFInterfaces_InterfaceType(
+		target.Type = ysocif.E_IETFInterfaces_InterfaceType(
 			p.eMapper.GetEnumFromString(source.GetStringVal(), target.Type))
 	default:
 		p.LeafNotFound()
@@ -344,7 +344,7 @@ func (p *ocIfParser) ifAggState(nf *gnmi.Notification, updNum int) {
 	case "lag-speed":
 		target.LagSpeed = ygot.Uint32(uint32(source.GetUintVal()))
 	case "lag-type":
-		target.LagType = ocif.E_OpenconfigIfAggregate_AggregationType(
+		target.LagType = ysocif.E_OpenconfigIfAggregate_AggregationType(
 			p.eMapper.GetEnumFromString(source.GetStringVal(), target.LagType))
 	case "member":
 		memberList := source.GetLeaflistVal()
@@ -458,7 +458,7 @@ func (p *ocIfParser) subIfState(nf *gnmi.Notification, updNum int) {
 	target := p.yStruct.Interface[pathMeta.ifName].Subinterface[pathMeta.ifIndex]
 	switch pathMeta.leafName {
 	case "admin-status":
-		target.AdminStatus = ocif.E_Interface_AdminStatus(
+		target.AdminStatus = ysocif.E_Interface_AdminStatus(
 			p.eMapper.GetEnumFromString(source.GetStringVal(), target.AdminStatus))
 	case "cpu":
 		target.Cpu = ygot.Bool(source.GetBoolVal())
@@ -479,7 +479,7 @@ func (p *ocIfParser) subIfState(nf *gnmi.Notification, updNum int) {
 	case "name":
 		target.Name = ygot.String(source.GetStringVal())
 	case "oper-status":
-		target.OperStatus = ocif.E_Interface_OperStatus(
+		target.OperStatus = ysocif.E_Interface_OperStatus(
 			p.eMapper.GetEnumFromString(source.GetStringVal(), target.OperStatus))
 	default:
 		p.LeafNotFound()

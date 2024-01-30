@@ -33,7 +33,7 @@ type promExporter struct {
 	mutex      sync.Mutex
 
 	descriptors   map[string]*prometheus.Desc // Key: metric FQName
-	metricSources map[string]GMetricSource    // Key: source name + device name
+	metricSources map[GMetricSource]bool      // Key: metric source
 }
 
 // New creates a new promExporter instance with the provided configuration.
@@ -42,7 +42,7 @@ func New(cfg Config) (*promExporter, error) {
 	Registry = pExp.registerSource
 	pExp.descriptors = make(map[string]*prometheus.Desc)
 	// Note: SelfMon sources are collected after Metric sources
-	pExp.metricSources = make(map[string]GMetricSource)
+	pExp.metricSources = make(map[GMetricSource]bool)
 	return pExp, nil
 }
 
@@ -124,7 +124,7 @@ func (p *promExporter) Collect(ch chan<- prometheus.Metric) {
 
 	var wg sync.WaitGroup
 	// Gather data from metric sources
-	for _, mSource := range p.metricSources {
+	for mSource := range p.metricSources {
 		wg.Add(1)
 		go func(s GMetricSource) {
 			s.GetMetrics(mChan)
@@ -151,22 +151,11 @@ func (p *promExporter) registerSource(src GMetricSource, metrics []GMetric) erro
 	if src == nil {
 		return errors.New("cannot register a nil source")
 	}
-	if metrics[0] == nil {
-		return errors.New("cannot register a nil metric")
-	}
 
 	// Metric source registration
-	mc := metrics[0].getCommons()
-	if err := mc.validate(); err != nil {
-		return err
-	}
-	srcKey := mc.Source.String() + mc.Device
-	if p.metricSources[srcKey] != nil {
-		return errors.New("metric source is already registered")
-	}
-	p.metricSources[srcKey] = src
+	p.metricSources[src] = true
 
-	// Metrics descriptor registration
+	// Prometheus descriptor creation
 	for _, m := range metrics {
 		if m == nil {
 			return errors.New("cannot register a nil metric")
@@ -177,11 +166,12 @@ func (p *promExporter) registerSource(src GMetricSource, metrics []GMetric) erro
 		}
 		fqName := buildFQName(p.config.MetricPrefix, commons)
 		if _, ok := p.descriptors[fqName]; ok {
+			// This is the case where different sources register the same metric. (e.g.: Self monitoring)
 			continue
 		}
-		lk := []string{"instance_name", "device"}
-		lk = append(lk, getLabelKeys(m)...)
-		p.descriptors[fqName] = prometheus.NewDesc(fqName, commons.Help, lk, nil)
+		labelKeys := []string{"instance_name", "device"}
+		labelKeys = append(labelKeys, getLabelKeys(m)...)
+		p.descriptors[fqName] = prometheus.NewDesc(fqName, commons.Help, labelKeys, nil)
 	}
 	return nil
 }

@@ -46,7 +46,6 @@ type Config struct {
 	TLSCa                 string
 	TLSInsecureSkipVerify bool
 	ForceEncoding         string
-	DisableUseModels      bool
 	DevName               string
 	ScrapeInterval        time.Duration
 	MaxLife               time.Duration
@@ -58,12 +57,11 @@ type Config struct {
 // GnmiClient The gNMI client object
 type GnmiClient struct {
 	clientMon
-	config     Config
-	shutdown   func()
-	dataModels []*gnmi.ModelData
-	encoding   gnmi.Encoding
-	plugins    map[string]plugin // Map key: plugin name
-	xPaths     map[string]plugin // Map key: subscribed xPath
+	config   Config
+	shutdown func()
+	encoding gnmi.Encoding
+	plugins  map[string]plugin // Map key: plugin name
+	xPaths   map[string]plugin // Map key: subscribed xPath
 }
 
 // New Creates a new GnmiClient instance
@@ -197,7 +195,7 @@ func (c *GnmiClient) newDialOptions() ([]grpc.DialOption, error) {
 	return opts, nil
 }
 
-// checkCapabilities verifies if th target device supports the required capabilities.
+// checkCapabilities verifies if the target device supports the required datamodels and encodings.
 // The capabilities include:
 // - Check if the required datamodel is supported
 // - Check if the required encoding is supported
@@ -208,8 +206,7 @@ func (c *GnmiClient) checkCapabilities(ctx context.Context, stub gnmi.GNMIClient
 	}
 
 	// Check for yang datamodels support
-	supportedModels := make(map[string]*gnmi.ModelData, 512)
-	c.dataModels = make([]*gnmi.ModelData, 0, len(c.plugins))
+	supportedModels := make(map[string]*gnmi.ModelData, len(caps.SupportedModels))
 	for _, model := range caps.SupportedModels {
 		supportedModels[model.Name] = model
 	}
@@ -218,7 +215,6 @@ func (c *GnmiClient) checkCapabilities(ctx context.Context, stub gnmi.GNMIClient
 			if _, ok := supportedModels[reqModel]; !ok {
 				return fmt.Errorf("the yang model <%s> is not supported by %s", reqModel, c.config.DevName)
 			}
-			c.dataModels = append(c.dataModels, supportedModels[reqModel])
 		}
 	}
 
@@ -257,7 +253,7 @@ func (c *GnmiClient) checkCapabilities(ctx context.Context, stub gnmi.GNMIClient
 // The method subscribes to plugins' specified paths and constructs SubscriptionList and
 // SubscribeRequest for each configured plugin.
 func (c *GnmiClient) subscribe(ctx context.Context, stub gnmi.GNMIClient) (gnmi.GNMI_SubscribeClient, error) {
-	// Create subscription client
+	// Create client
 	gNMISubClt, err := stub.Subscribe(ctx)
 	if err != nil {
 		return nil, err
@@ -271,11 +267,10 @@ func (c *GnmiClient) subscribe(ctx context.Context, stub gnmi.GNMIClient) (gnmi.
 	}
 	sampleInterval := uint64(c.config.ScrapeInterval.Nanoseconds() / c.config.OverSampling)
 
-	// One SubscribeRequest for each given plugin
-	requests := make([]*gnmi.SubscribeRequest, 0, len(c.plugins))
+	// Prepare Subscription struct slice
+	subscriptions := make([]*gnmi.Subscription, 0)
 	for _, plug := range c.plugins {
 		xPaths := plug.GetPathsToSubscribe()
-		subscriptions := make([]*gnmi.Subscription, 0, len(xPaths))
 		// One subscription for each plugin's path
 		for _, path := range xPaths {
 			p, err := ygot.StringToPath(path, ygot.StructuredPath, ygot.StringSlicePath)
@@ -292,40 +287,36 @@ func (c *GnmiClient) subscribe(ctx context.Context, stub gnmi.GNMIClient) (gnmi.
 			}
 			subscriptions = append(subscriptions, newSub)
 		}
-
-		// One SubscriptionList for each given SubscribeRequest
-		subList := &gnmi.SubscriptionList{
-			Prefix:           &gnmi.Path{Target: plug.GetPlugName()},
-			Subscription:     subscriptions,
-			Qos:              nil,
-			Mode:             gnmi.SubscriptionList_STREAM,
-			AllowAggregation: false,
-			UseModels:        c.dataModels,
-			Encoding:         c.encoding,
-			UpdatesOnly:      c.config.GnmiUpdatesOnly,
-		}
-
-		if c.config.DisableUseModels {
-			subList.UseModels = nil
-		}
-
-		requests = append(requests, &gnmi.SubscribeRequest{
-			Request:   &gnmi.SubscribeRequest_Subscribe{Subscribe: subList},
-			Extension: nil,
-		})
 	}
 
-	for _, req := range requests {
-		err = gNMISubClt.Send(req)
-		if err != nil {
-			return nil, err
-		}
+	// Prepare the SubscriptionList struct
+	subList := &gnmi.SubscriptionList{
+		Prefix:           nil,
+		Subscription:     subscriptions,
+		Qos:              nil,
+		Mode:             gnmi.SubscriptionList_STREAM,
+		AllowAggregation: false,
+		UseModels:        nil,
+		Encoding:         c.encoding,
+		UpdatesOnly:      c.config.GnmiUpdatesOnly,
+	}
+
+	// Prepare the SubscribeRequest struct
+	request := &gnmi.SubscribeRequest{
+		Request:   &gnmi.SubscribeRequest_Subscribe{Subscribe: subList},
+		Extension: nil,
+	}
+
+	// Send it to the device
+	err = gNMISubClt.Send(request)
+	if err != nil {
+		return nil, err
 	}
 
 	return gNMISubClt, nil
 }
 
-// receive takes care of receiving the GNMI subscription stream from the device
+// receive takes care of receiving the GNMI stream from the device
 func (c *GnmiClient) receive(sub gnmi.GNMI_SubscribeClient) error {
 	ch := make(chan *gnmi.SubscribeResponse, srBufferSize)
 	done := make(chan struct{})
@@ -381,7 +372,7 @@ func (c *GnmiClient) routeSr(sr *gnmi.SubscribeResponse) {
 		}
 		c.plugins[nf.Prefix.Target].Notification(nf)
 	} else {
-		// Device does not support gnmi targeting
+		// Device does not support gnmi targeting or the subscription does not include a prefix target
 		pfx, _ := ygot.PathToSchemaPath(nf.Prefix)
 		if len(pfx) < 2 {
 			// Empty prefix
@@ -462,7 +453,6 @@ func (c *GnmiClient) run(ctx context.Context) {
 
 	// This is the gNMI worker thread main loop
 	for {
-		// TODO: Reconnection, session TTL expiration and application closing should be handled in a better way
 		// Reconnecting?
 		if gCtxCancelFunc != nil {
 			<-gCtx.Done() // Wait deadline before retrying
