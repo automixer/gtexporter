@@ -82,18 +82,22 @@ func (p *ocLldpParser) getPathMeta(pfx, path *gnmi.Path) (*pathMetadata, error) 
 	out := &pathMetadata{}
 
 	// Build the full path as a slice of strings
-	sPfx, err := ygot.PathToStrings(pfx)
-	if err != nil {
-		return nil, err
+	if pfx != nil {
+		sPfx, err := ygot.PathToStrings(pfx)
+		if err != nil {
+			return nil, err
+		}
+		if len(sPfx) > 0 {
+			fullPath = append(fullPath, sPfx...)
+		}
 	}
-	if len(sPfx) > 0 {
-		fullPath = append(fullPath, sPfx...)
+	if path != nil {
+		sPath, err := ygot.PathToStrings(path)
+		if err != nil {
+			return nil, err
+		}
+		fullPath = append(fullPath, sPath...)
 	}
-	sPath, err := ygot.PathToStrings(path)
-	if err != nil {
-		return nil, err
-	}
-	fullPath = append(fullPath, sPath...)
 	if len(fullPath) < 2 {
 		return nil, errors.New("path too short")
 	}
