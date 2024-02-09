@@ -1,14 +1,14 @@
 # These keys are global and are received by all app packages.
 global:
   instance_name: my_instance          # Instance name. Defaults to "default".
-  metric_prefix: gnmi                 # The prefix to prepend to Prometheus metrics.
+  metric_prefix: gnmi                 # The prefix to prepend to Prometheus metrics, also called "metric namespace".
                                       # It must satisfy this regex: "^[a-zA-Z0-9_]*$"
   listen_address: 0.0.0.0             # Prometheus exporter listen address. Defaults to 0.0.0.0
   listen_port: 9456                   # Prometheus exporter listen port. Defaults to 9456
   scrape_interval: 1m                 # The scrape interval configured on Prometheus server. No less than 10 seconds.
 
 
-# These keys are shared among all devices configurations and are overridden by the device section keys.
+# These keys are shared among all device configurations and are overridden by the device section keys.
 device_template:
   port: 6030
   # etc... Any legal device config key is permitted here.
@@ -23,30 +23,30 @@ devices:
     port: 57400                     # Device gRPC port. Mandatory.
 
     # TLS related keys:
-    tls: true                       # Flag. Use TLS if true.
+    tls: true                       # Flag. Uses TLS if true.
     tls_cert: <path_to_file>        # Path of the TLS certificate file.
     tls_key:  <path_to_file>        # Path of the TLS certificate key file.
     tls_ca:   <path_to_file>        # Path of the TLS CA certificate file.
     tls_insecure_skip_verify: false # Flag. Skip certificate verifications if true.
 
-    # Plugins related keys:
+    # Plugin related keys:
     plugins: [oc_interfaces,oc_lldp]  # This is the list of the plugin to load. Mandatory.
     custom_label: my_label          # The value of this key is copied into the emitted metrics "custom_label" label.
-    mode: cache                     # If set to "cache" the formatter keeps gNMI notifications data over time.
+    mode: cache                     # If set to "cache", the formatter keeps gNMI notifications data over time.
                                     # The device's gNMI server must support gNMI delete messages to avoid stale entries
-                                    # into the cache. Defaults to non-cache mode. Requires full support for gNMI
+                                    # into the cache. Default to non-cache mode. Requires full support for gNMI
                                     # delete messages from the device.
     use_go_defaults: false          # Flag. If true, all the leaves of the YANG schema are always sent to Prometheus,
                                     # even if not received from the device.
                                     # USE WITH CAUTION. This setting can produce very high db cardinality levels.
     desc_sanitize: <string>         # Regex pattern of device description fields allowed characters. Defaults to
-                                    # "[a-zA-Z0-9_:\\-/]". Any character in the description that doesn't match this
-                                    # pattern will be removed
+                                    # "[a-zA-Z0-9_:\\-/]". Any character in the description that doesn't match
+                                    # the pattern will be removed
 
     # gNMI related keys:
     force_encoding: proto           # Force the gNMI client to use a specific encoding. Acceptable values are:
                                     # "json", "bytes", "proto", "ascii", "json_ietf".
-    on_change: false                # Flag. If true the gNMI subscription is sent with the ON_CHANGE mode enabled.
+    on_change: false                # Flag. If true, the gNMI subscription is sent with the ON_CHANGE mode enabled.
                                     # Requires support from the device. Only compatible with Plugin cache mode.
     oversampling: 2                 # Allowed values: from 1 up to 10. Defaults to 2
                                     # This key controls the sample_interval of the gNMI subscription.
@@ -54,7 +54,7 @@ devices:
     max_life: 1d                    # Maximum life of a gNMI subscription. Zero value means no limit.
                                     # When the max_life limit arrives, the gNMI client tears down the connection and
                                     # establishes a new one. A gNMI subscription restart forces a cache flush.
-                                    # This option can be used as workaround if we want to enable Plugin cache mode
+                                    # This option can be used as a workaround if we want to enable Plugin cache mode
                                     # but the gNMI device does not support gNMI delete messages.
 
   # Another device.
