@@ -1,4 +1,10 @@
 # gNMI Telemetry Exporter for Prometheus
+![GitHub License](https://img.shields.io/github/license/automixer/gtexporter)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/automixer/gtexporter/release.yaml)
+![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/automixer/gtexporter)
+[![Go Report Card](https://goreportcard.com/badge/github.com/automixer/gtexporter)](https://goreportcard.com/report/github.com/automixer/gtexporter)
+
+
 This project is currently under development. Features and database schema can change suddenly without notice.  
 **PLEASE DO NOT USE IN PRODUCTION ENVIRONMENTS**  
 
@@ -8,20 +14,20 @@ but it should work with any [gNMI compliant](https://github.com/openconfig/refer
 device that implements any [OpenConfig compliant](https://github.com/openconfig/public/blob/master/doc/openconfig_style_guide.md) YANG data model. 
 
 ## Overview
-The main goal of this project is to create an easy-to-scale, vendor-agnostic Prometheus exporter for gNMI
+The intent of this project is to create an easy-to-scale, vendor-agnostic Prometheus exporter for gNMI
 streaming telemetries. To satisfy these two requirements, the relevant design choice is to put the YANG data 
 model at the center: Incoming gNMI streams are treated as part of this known data structure and processed accordingly.
 The "awareness" of the underlying data model is a crucial enabler for exporting a stable and 
 predictable metric set for Prometheus. This, in turn, allows horizontal scaling of the monitoring system with a 
 robust vendor-neutral approach.  
 
-The application design is built around these concepts:
+The application design is built around these ideas:
 - Several app instances can be spawned on different machines across the network. 
 The produced metrics will seamlessly merge into one or more Prometheus server instances.
-- A given app instance can run several **gNMI clients** concurrently, one for each monitored device.
+- A given instance can run several **gNMI clients** concurrently, one for each monitored device.
 - Each gNMI client can run several **schema plugins**, one for each set of the YANG path on interest.
 - When Prometheus server scrapes, the **exporter** collects all the received metrics from all the **schema plugins** 
-and exposes them to Prometheus via its own [client](https://github.com/prometheus/client_golang) library.  
+and exposes them via its own [client](https://github.com/prometheus/client_golang) library.  
 
 Hence, the central component of the app is the **schema plugin**:
 - A **schema plugin** is responsible for subscribing and rendering a set of 
@@ -30,12 +36,12 @@ Hence, the central component of the app is the **schema plugin**:
   - The **Parser** decodes and loads the received gNMI notifications into the related **GoStruct** data structure.
   - The **Formatter** reads that **GoStruct** and builds up the metrics to be exported when Prometheus asks for them. 
 - The **GoStruct** is a "data container" that represents the structure of the selected YANG data model. 
-It is generated using the Openconfig [yGot](https://github.com/openconfig/ygot) project and takes as input the actual ```.yang``` 
+It is generated using the Openconfig [yGot](https://github.com/openconfig/ygot) project and takes as input for code generation the actual ```.yang``` 
 files published by the device vendor or the OpenConfig community.
 
 ## Getting Started
 ### Build from sources
-Requires ```go 1.21.6``` or higher and ```make```.
+Requires ```go 1.22.0``` or higher and ```make```.
 ```
 git clone https://github.com/automixer/gtexporter.git
 cd gtexporter
@@ -56,7 +62,7 @@ This [configuration file template](config-keys.yaml) describes all the supported
 The config file is subdivided into three sections:
 1) The ```global``` section contains application-wide settings like the Prometheus client listen address and port.
 2) The ```device_template``` section contains the settings shared among all devices. This section can
-help keep the configuration file small and readable. It can be empty, and any keys can be overridden by a more
+help keep the configuration file small and readable. It can be empty, and any key can be overridden by a more
 specific key into the ```devices``` section.
 3) The ```devices``` section contains the device-specific settings, like the device name, IP address and, port 
 of the target. It inherits the contents of the ```device_template``` section and, if a key is present on both, the more
@@ -93,19 +99,23 @@ devices:
 ## Supported Schema Plugins
 These are the currently available ```schema plugins```:
 ### ```oc_interfaces```
-This plugin is based on the ```openconfig-interfaces``` data model. It subscribes to these schema paths:
+This plugin is based on the ```openconfig-interfaces``` data model.  
+Subscribe to these schema paths:
 1) ```/interfaces/interface/state/```
 2) ```/interfaces/interface/aggregation/state/```
-3) ```/interfaces/interface/subinterfaces/subinterface/state/```  
-It produces two Prometheus metrics:
-- ```<configured_metric_prefix>_oc_if_counters{}```.
-- ```<configured_metric_prefix>_oc_if_gauges{}```.
+3) ```/interfaces/interface/subinterfaces/subinterface/state/```
+
+Produces two Prometheus metrics:
+1) ```<configured_metric_prefix>_oc_if_counters{}```.
+2) ```<configured_metric_prefix>_oc_if_gauges{}```.
 
 ### ```oc_lldp```
-This plugin is based on the ```openconfig-lldp``` data model. It subscribes to this schema path:
-1) ```/lldp/interfaces/interface/neighbors/neighbor/state/```  
-It produces one Prometheus metrics:  
-- ```<configured_metric_prefix>_oc_lldp_if_nbr_gauges{}```.  
+This plugin is based on the ```openconfig-lldp``` data model.  
+Subscribe to this schema path:
+1) ```/lldp/interfaces/interface/neighbors/neighbor/state/```
+
+Produces one Prometheus metrics:  
+1) ```<configured_metric_prefix>_oc_lldp_if_nbr_gauges{}```.  
 LLDP must be enabled on the target devices.
 
 ## Self-Monitoring Services

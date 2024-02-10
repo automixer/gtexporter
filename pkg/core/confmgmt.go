@@ -55,7 +55,7 @@ func (c *Core) parseAppConfig(yCfg *yamlConfig) error {
 			if yCfg.Templates.Plugins == nil {
 				return errors.New("no plugins configured")
 			}
-			yCfg.Devices[i].Plugins = append(yCfg.Templates.Plugins)
+			yCfg.Devices[i].Plugins = append(yCfg.Devices[i].Plugins, yCfg.Templates.Plugins...)
 		}
 	}
 
