@@ -32,6 +32,7 @@ devices:
     # Plugin related keys:
     plugins: [oc_interfaces,oc_lldp]  # This is the list of the plugin to load. Mandatory.
     custom_label: my_label          # The value of this key is copied into the emitted metrics "custom_label" label.
+                                    # It can be used to distinguish metric sources or any other user-defined data.
     mode: cache                     # If set to "cache", the formatter keeps gNMI notifications data over time.
                                     # The device's gNMI server must support gNMI delete messages to avoid stale entries
                                     # into the cache. Default to non-cache mode. Requires full support for gNMI
