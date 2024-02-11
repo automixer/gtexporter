@@ -40,6 +40,10 @@ It is generated using the Openconfig [yGot](https://github.com/openconfig/ygot) 
 files published by the device vendor or the OpenConfig community.
 
 ## Getting Started
+### Download from GitHub
+Binaries are available for download [here](https://github.com/automixer/gtexporter/releases)  
+The mandatory argument is a config file: ```gtexporter-<OS>-<ARCH> -config <path/to/config/file>```.
+
 ### Build from sources
 Requires ```go 1.22.0``` or higher and ```make```.
 ```
@@ -48,14 +52,14 @@ cd gtexporter
 make
 ```
 The binary executable will be created into the ```build/``` project folder. The mandatory argument is 
-a valid config file: ```gtexporter -config <path/to/config/file>```.
+a config file: ```gtexporter -config <path/to/config/file>```.
 
 ### Use the provided Docker image
 Requires ```Docker Engine```. The supported platforms are ```linux/amd64``` and ```linux/arm64```.
 ```
 docker run -p 9456:9456/tcp --mount type=bind,source=.,target=/etc/gte/ automixer/gtexporter -config /etc/gte/config.yaml
 ```
-The mandatory argument is a valid config file named ```config.yaml``` into the current folder.
+The mandatory argument is a config file named ```config.yaml``` into the current folder.
 
 ### The Configuration File
 This [configuration file template](config-keys.yaml) describes the supported configuration keys.  
