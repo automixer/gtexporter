@@ -1,10 +1,10 @@
-name: devel_build
+name: devel_image
 
 on:
   workflow_dispatch:
 
 jobs:
-  build_devel_image:
+  devel_image:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -16,6 +16,8 @@ jobs:
         with:
           images: |
             ${{ github.repository }}
+          labels: |
+            org.opencontainers.image.ref.name=${{ github.repository }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3

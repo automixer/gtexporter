@@ -34,7 +34,7 @@ Hence, the central component of the app is the **schema plugin**:
 [schema paths](https://openconfig.net/projects/models/paths/) from a selected YANG data model.
 - Internally, it is further divided into two components:
   - The **Parser** decodes and loads the received gNMI notifications into the related **GoStruct** data structure.
-  - The **Formatter** reads that **GoStruct** and builds up the metrics to be exported when Prometheus asks for them. 
+  - The **Formatter** reads the **GoStruct** and builds up the metrics to be exported when Prometheus asks for them. 
 - The **GoStruct** is a "data container" that represents the structure of the selected YANG data model. 
 It is generated using the Openconfig [yGot](https://github.com/openconfig/ygot) project and takes as input for code generation the actual ```.yang``` 
 files published by the device vendor or the OpenConfig community.
@@ -58,12 +58,12 @@ docker run -p 9456:9456/tcp --mount type=bind,source=.,target=/etc/gte/ automixe
 The mandatory argument is a valid config file named ```config.yaml``` into the current folder.
 
 ### The Configuration File
-This [configuration file template](config-keys.yaml) describes all the supported configuration keys.  
-The config file is subdivided into three sections:
+This [configuration file template](config-keys.yaml) describes the supported configuration keys.  
+The file is subdivided into three sections:
 1) The ```global``` section contains application-wide settings like the Prometheus client listen address and port.
 2) The ```device_template``` section contains the settings shared among all devices. This section can
 help keep the configuration file small and readable. It can be empty, and any key can be overridden by a more
-specific key into the ```devices``` section.
+specific setting into the ```devices``` section.
 3) The ```devices``` section contains the device-specific settings, like the device name, IP address and, port 
 of the target. It inherits the contents of the ```device_template``` section and, if a key is present on both, the more
 specific wins (i.e.: the one coming from ```devices```).

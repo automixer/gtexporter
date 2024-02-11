@@ -1,16 +1,13 @@
 APP_NAME			:= gtexporter
-APP_PATH			:= cmd/gtexporter/*.go
-YGOT_GEN_VER		:= 'v0.29.18'
+SRC_PATH			:= cmd/gtexporter/
 BUILD_DIR			:= build
-
+YGOT_GEN_VER		:= 'v0.29.18'
 BUILD_DATE			:= $(shell date -u +%FT%TZ)
 GOOS				:= $(shell go env GOOS)
 GOARCH				:= $(shell go env GOARCH)
-APP_VERSION			:= $(shell git describe --abbrev --long --tags HEAD)
+BIN_NAME 			:= $(BUILD_DIR)/$(APP_NAME)
 COMMIT_ID			:= $(shell git rev-parse --short HEAD)
-LDFLAGS_REL			:= '-X main.appName=$(APP_NAME) -X main.appVersion=$(APP_VERSION) -X main.buildDate=$(BUILD_DATE)'
-LDFLAGS_BUILD		:= '-X main.appName=$(APP_NAME) -X main.appVersion=dev-$(COMMIT_ID) -X main.buildDate=$(BUILD_DATE)'
-BIN_NAME			:= $(BUILD_DIR)/$(APP_NAME)
+LDFLAGS				:= '-X main.appName=$(APP_NAME) -X main.appVersion=dev-$(COMMIT_ID) -X main.buildDate=$(BUILD_DATE)'
 .DEFAULT_GOAL		:= build
 
 install_ygot_gen:
@@ -42,17 +39,21 @@ clean:
 .PHONY: clean
 
 build: prepare vet
-	go build -ldflags $(LDFLAGS_BUILD) -o $(BIN_NAME) $(APP_PATH)
+	go build -ldflags $(LDFLAGS) -o $(BIN_NAME) $(SRC_PATH)*.go
 .PHONY: build
 
 release: prepare vet
-	go build -ldflags $(LDFLAGS_REL) -o $(BIN_NAME) $(APP_PATH)
+	$(eval LDFLAGS := '-X main.appName=$(APP_NAME) \
+	-X main.appVersion=$(shell git describe --abbrev --tags HEAD)-$(COMMIT_ID) \
+	-X main.buildDate=$(BUILD_DATE)')
+	go build -ldflags $(LDFLAGS) -o $(BIN_NAME)-$(GOOS)-$(GOARCH) $(SRC_PATH)*.go
 .PHONY: release
 
-docker:
+docker: prepare vet
 ifeq ($(Mode),Release)
-	make release
-else
-	make build
+	$(eval LDFLAGS := '-X main.appName=$(APP_NAME) \
+	-X main.appVersion=$(shell git describe --abbrev --tags HEAD)-$(COMMIT_ID) \
+	-X main.buildDate=$(BUILD_DATE)')
 endif
+	go build -ldflags $(LDFLAGS) -o $(BIN_NAME) $(SRC_PATH)*.go
 .PHONY: docker

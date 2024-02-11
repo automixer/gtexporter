@@ -24,16 +24,16 @@ func main() {
 	_ = flag.Set("logtostderr", "true")
 	flag.Parse()
 
-	log.Infof("Starting %s %s ...", appName, appVersion)
-	log.Infof("Build date : %s", buildDate)
-
 	// Print Version
 	if *ver {
-		fmt.Printf("-- %s -- gNMI telemetries exporter for Prometheus --\n", appName)
+		fmt.Printf("-- %s -- A YANG gNMI telemetries exporter for Prometheus! --\n", appName)
 		fmt.Println("Release:", appVersion)
 		fmt.Println("Build date:", buildDate)
 		os.Exit(0)
 	}
+
+	log.Infof("Starting %s %s ...", appName, appVersion)
+	log.Infof("Build date : %s", buildDate)
 
 	// Check config file
 	if *cfgFile == "" {
