@@ -7,8 +7,6 @@ on:
 
 jobs:
   docker_image:
-    env:
-      Mode: Release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -42,11 +40,12 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: .
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            MODE=docker_release
 
   gh_release:
     runs-on: ubuntu-latest

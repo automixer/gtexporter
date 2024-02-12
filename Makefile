@@ -8,7 +8,7 @@ GOARCH				:= $(shell go env GOARCH)
 BIN_NAME 			:= $(BUILD_DIR)/$(APP_NAME)
 COMMIT_ID			:= $(shell git rev-parse --short HEAD)
 LDFLAGS				:= '-X main.appName=$(APP_NAME) -X main.appVersion=dev-$(COMMIT_ID) -X main.buildDate=$(BUILD_DATE)'
-.DEFAULT_GOAL		:= build
+.DEFAULT_GOAL		:= devel
 
 install_ygot_gen:
 	go install github.com/openconfig/ygot/generator@$(YGOT_GEN_VER)
@@ -38,7 +38,7 @@ clean:
 	rm -rf $(BUILD_DIR)
 .PHONY: clean
 
-build: prepare vet
+devel: prepare vet
 	go build -ldflags $(LDFLAGS) -o $(BIN_NAME) $(SRC_PATH)*.go
 .PHONY: build
 
@@ -49,11 +49,9 @@ release: prepare vet
 	go build -ldflags $(LDFLAGS) -o $(BIN_NAME)-$(GOOS)-$(GOARCH) $(SRC_PATH)*.go
 .PHONY: release
 
-docker: prepare vet
-ifeq ($(Mode),Release)
+docker_release: prepare vet
 	$(eval LDFLAGS := '-X main.appName=$(APP_NAME) \
 	-X main.appVersion=$(shell git describe --abbrev --tags HEAD)-$(COMMIT_ID) \
 	-X main.buildDate=$(BUILD_DATE)')
-endif
 	go build -ldflags $(LDFLAGS) -o $(BIN_NAME) $(SRC_PATH)*.go
-.PHONY: docker
+.PHONY: docker_release
