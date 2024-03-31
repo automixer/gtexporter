@@ -4,10 +4,6 @@
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/automixer/gtexporter)
 [![Go Report Card](https://goreportcard.com/badge/github.com/automixer/gtexporter)](https://goreportcard.com/report/github.com/automixer/gtexporter)
 
-
-This project is currently under development. Features and database schema can change suddenly without notice.  
-**PLEASE DO NOT USE IN PRODUCTION ENVIRONMENTS**  
-
 **GtExporter** is a tool for subscribing and exporting gNMI streaming telemetries to Prometheus in a YANG 
 "data-model-aware" way. The intended usage is to gather and store network devices' operational state metrics, 
 but it should work with any [gNMI compliant](https://github.com/openconfig/reference/tree/master/rpc/gnmi) 
@@ -17,9 +13,8 @@ device that implements any [OpenConfig compliant](https://github.com/openconfig/
 The intent of this project is to create an easy-to-scale, vendor-agnostic Prometheus exporter for gNMI
 streaming telemetries. To satisfy these two requirements, the relevant design choice is to put the YANG data 
 model at the center: Incoming gNMI streams are treated as part of this known data structure and processed accordingly.
-The "awareness" of the underlying data model is a crucial enabler for exporting a stable and 
-predictable metric set for Prometheus. This, in turn, allows horizontal scaling of the monitoring system with a 
-robust vendor-neutral approach.  
+The "awareness" of the underlying data model enables the export of a stable and predictable metric set for 
+Prometheus and, in turn, allows horizontal scaling of the monitoring system with a robust vendor-neutral approach. 
 
 The application design is built around these ideas:
 - Several app instances can be spawned on different machines across the network. 
