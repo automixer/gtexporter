@@ -1,0 +1,16 @@
+# These keys are plugin-specific and optional.
+# The configuration structure is as follows:
+devices:
+  - name: DEVICE1                   # Device name. Mandatory.
+    # etc...
+
+    # Plugin related keys:
+    plugins: ["<comma separated plugin list>"]
+    options:
+      option1: "option1 value"
+      option2: "option2 value"
+      option3: "option2 value"
+      # etc...
+
+#==== oc_interfaces plugin specific. ====
+      disable_subint: "true"    #  Disables the SubInterfaces branch subscription and metrics collection

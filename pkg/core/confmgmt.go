@@ -23,6 +23,7 @@ const (
 type yamlDevConfig struct {
 	Keys    map[string]string `yaml:"devices,inline"`
 	Plugins []string          `yaml:"plugins"`
+	Options map[string]string `yaml:"options"`
 }
 
 type yamlConfig struct {
@@ -46,16 +47,22 @@ func (c *Core) parseAppConfig(yCfg *yamlConfig) error {
 		return errors.New("no devices configured")
 	}
 	for i, devCfg := range yCfg.Devices {
+		// Keys
 		for k, v := range yCfg.Templates.Keys {
 			if devCfg.Keys[k] == "" {
 				yCfg.Devices[i].Keys[k] = v
 			}
 		}
+		// Plugin list
 		if devCfg.Plugins == nil {
 			if yCfg.Templates.Plugins == nil {
 				return errors.New("no plugins configured")
 			}
 			yCfg.Devices[i].Plugins = append(yCfg.Devices[i].Plugins, yCfg.Templates.Plugins...)
+		}
+		// Plugin options
+		if devCfg.Options == nil {
+			yCfg.Devices[i].Options = yCfg.Templates.Options
 		}
 	}
 
@@ -113,7 +120,7 @@ func (c *Core) validateGlobalConfig(yCfg *yamlConfig) error {
 	return nil
 }
 
-// validateDeviceConfig validates a device section in the configuration file
+// validateDeviceConfig checks if mandatory keys are present
 func (c *Core) validateDeviceConfig(yCfg *yamlDevConfig) error {
 	if _, ok := yCfg.Keys["name"]; !ok {
 		return fmt.Errorf("device section must contain a device name")
@@ -197,6 +204,7 @@ func (c *Core) buildPluginCfg(yCfg *yamlConfig, index int) {
 			PlugName:     plugName,
 			CustomLabel:  src.Keys["custom_label"],
 			DescSanitize: src.Keys["desc_sanitize"],
+			Options:      make(map[string]string),
 		}
 		// Default string values
 		if newPlug.DescSanitize == "" {
@@ -214,5 +222,9 @@ func (c *Core) buildPluginCfg(yCfg *yamlConfig, index int) {
 		scrapeInterval, _ := time.ParseDuration(yCfg.Global["scrape_interval"])
 		newPlug.ScrapeInterval = scrapeInterval
 		c.plugCfg[src.Keys["name"]] = append(c.plugCfg[src.Keys["name"]], newPlug)
+		// Plugin options
+		for k, v := range src.Options {
+			newPlug.Options[k] = v
+		}
 	}
 }

@@ -2,7 +2,7 @@
 global:
   instance_name: my_instance          # Instance name. Defaults to "default".
   metric_prefix: gnmi                 # The prefix to prepend to Prometheus metrics, also called "metric namespace".
-                                      # It must satisfy this regex: "^[a-zA-Z0-9_]*$"
+                                      # It must satisfy the regex ^[a-zA-Z0-9_]*$
   listen_address: 0.0.0.0             # Prometheus exporter listen address. Defaults to 0.0.0.0
   listen_port: 9456                   # Prometheus exporter listen port. Defaults to 9456
   scrape_interval: 1m                 # The scrape interval configured on Prometheus server. No less than 10 seconds.
@@ -43,6 +43,7 @@ devices:
     desc_sanitize: <string>         # Regex pattern of device description fields allowed characters. Defaults to
                                     # "[a-zA-Z0-9_:\\-/]". Any character in the description that doesn't match
                                     # the pattern will be removed
+    options: <plugin options>       # Plugin specific options. See plugin-options.yaml
 
     # gNMI related keys:
     force_encoding: proto           # Force the gNMI client to use a specific encoding. Acceptable values are:

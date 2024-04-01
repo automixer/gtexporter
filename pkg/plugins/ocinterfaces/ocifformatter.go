@@ -5,6 +5,7 @@ import (
 	log "github.com/golang/glog"
 	"github.com/openconfig/ygot/ygot"
 	"github.com/prometheus/client_golang/prometheus"
+	"strconv"
 
 	// Local packages
 	"github.com/automixer/gtexporter/pkg/datamodels/ysocif"
@@ -45,14 +46,22 @@ func newFormatter(cfg plugins.Config) (plugins.Formatter, error) {
 // GetPaths returns the XPaths and datamodels for the ocIfFormatter package.
 // It implements the plugin's formatter interface
 func (f *ocIfFormatter) GetPaths() plugins.FormatterPaths {
-	return plugins.FormatterPaths{
-		XPaths:     []string{ifState, ifAggState, subIfState},
+	fp := plugins.FormatterPaths{
+		XPaths:     []string{ifState, ifAggState},
 		Datamodels: []string{dataModel},
 	}
+
+	// If not disabled, also subscribe to subinterfaces
+	disableSubInt, _ := strconv.ParseBool(f.config.Options["disable_subint"])
+	if !disableSubInt {
+		fp.XPaths = append(fp.XPaths, subIfState)
+	}
+
+	return fp
 }
 
 // ScrapeEvent implements the plugin's formatter interface.
-// It is called by the plugin when a scrape events occurs.
+// It is called by the plugin when a scrape event occurs.
 func (f *ocIfFormatter) ScrapeEvent(ys ygot.GoStruct) func() {
 	f.root = ysocif.GoStructToOcIf(ys)
 
