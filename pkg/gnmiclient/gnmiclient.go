@@ -15,6 +15,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -57,11 +58,12 @@ type Config struct {
 // GnmiClient The gNMI client object
 type GnmiClient struct {
 	clientMon
-	config   Config
-	shutdown func()
-	encoding gnmi.Encoding
-	plugins  map[string]plugin // Map key: plugin name
-	xPaths   map[string]plugin // Map key: subscribed xPath
+	config    Config
+	shutdown  func()
+	encoding  gnmi.Encoding
+	plugins   map[string]plugin // Map key: plugin name
+	xPaths    map[string]plugin // Map key: subscribed xPath (schema path)
+	xPathList []string          // Full paths list to be subscribed. Include YANG keys filter
 }
 
 // New Creates a new GnmiClient instance
@@ -87,10 +89,10 @@ func (c *GnmiClient) RegisterPlugin(name string, plug plugin) error {
 		c.plugins = make(map[string]plugin)
 	}
 	if _, ok := c.plugins[name]; ok {
-		return fmt.Errorf("plugin %s already registered", name)
+		return fmt.Errorf("plugin %s is already registered", name)
 	}
 	if plug == nil {
-		return fmt.Errorf("plugin parameter cannot be nil")
+		return fmt.Errorf("plugin cannot be nil")
 	}
 
 	// Before registering, check for duplicated xpath
@@ -98,12 +100,11 @@ func (c *GnmiClient) RegisterPlugin(name string, plug plugin) error {
 		c.xPaths = make(map[string]plugin)
 	}
 	plugPaths := plug.GetPathsToSubscribe()
+	re := regexp.MustCompile(`\[.*?]`)
 	for _, reqPath := range plugPaths {
-		for path := range c.xPaths {
-			if strings.HasPrefix(reqPath, path) {
-				return fmt.Errorf("path %s is already registered", reqPath)
-			}
-		}
+		c.xPathList = append(c.xPathList, reqPath)
+		// Remove keys from YANG path
+		reqPath = re.ReplaceAllString(reqPath, "")
 		c.xPaths[reqPath] = plug
 	}
 
@@ -111,7 +112,7 @@ func (c *GnmiClient) RegisterPlugin(name string, plug plugin) error {
 	return nil
 }
 
-// Start starts the goRoutine that take care of GNMI communication with the device
+// Start starts the goRoutine that take care of GNMI channel
 // It is non-blocking
 func (c *GnmiClient) Start() error {
 	gCtx, cancel := context.WithCancel(context.Background())
@@ -220,7 +221,7 @@ func (c *GnmiClient) checkCapabilities(ctx context.Context, stub gnmi.GNMIClient
 
 	// Pick an encoding
 	if c.config.ForceEncoding != "" {
-		// Encoding is enforced by config
+		// Config enforces encoding
 		c.config.ForceEncoding = strings.ToUpper(c.config.ForceEncoding)
 		switch c.config.ForceEncoding {
 		case "JSON":
@@ -269,10 +270,9 @@ func (c *GnmiClient) subscribe(ctx context.Context, stub gnmi.GNMIClient) (gnmi.
 
 	// Prepare Subscription struct slice
 	subscriptions := make([]*gnmi.Subscription, 0)
-	for _, plug := range c.plugins {
-		xPaths := plug.GetPathsToSubscribe()
+	for i := 0; i < len(c.plugins); i++ {
 		// One subscription for each plugin's path
-		for _, path := range xPaths {
+		for _, path := range c.xPathList {
 			p, err := ygot.StringToPath(path, ygot.StructuredPath, ygot.StringSlicePath)
 			if err != nil {
 				log.Error(err)
@@ -372,7 +372,7 @@ func (c *GnmiClient) routeSr(sr *gnmi.SubscribeResponse) {
 		}
 		c.plugins[nf.Prefix.Target].Notification(nf)
 	} else {
-		// Device does not support gnmi targeting or the subscription does not include a prefix target
+		// Device does not support gnmi targeting, or the subscription does not include a prefix target
 		pfx, _ := ygot.PathToSchemaPath(nf.Prefix)
 		if len(pfx) < 2 {
 			// Empty prefix

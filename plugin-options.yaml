@@ -12,5 +12,9 @@ devices:
       option3: "option2 value"
       # etc...
 
-#==== oc_interfaces plugin specific. ====
-      disable_subint: "true"    #  Disables the SubInterfaces branch subscription and metrics collection
+#==== oc_interfaces specific. ====
+      disable_subint: "true"              # Disables the SubInterfaces branch subscription and metrics collection
+      iface_filter:   "xe-0/0/0,ge-*"     # Comma separated list of interfaces to subscribe to.
+                                          # Globs accepted with some restrictions.
+                                          # See https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-path-conventions.md#wildcards-in-paths
+

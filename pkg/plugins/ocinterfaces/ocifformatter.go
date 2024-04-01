@@ -6,6 +6,7 @@ import (
 	"github.com/openconfig/ygot/ygot"
 	"github.com/prometheus/client_golang/prometheus"
 	"strconv"
+	"strings"
 
 	// Local packages
 	"github.com/automixer/gtexporter/pkg/datamodels/ysocif"
@@ -46,15 +47,37 @@ func newFormatter(cfg plugins.Config) (plugins.Formatter, error) {
 // GetPaths returns the XPaths and datamodels for the ocIfFormatter package.
 // It implements the plugin's formatter interface
 func (f *ocIfFormatter) GetPaths() plugins.FormatterPaths {
-	fp := plugins.FormatterPaths{
-		XPaths:     []string{ifState, ifAggState},
-		Datamodels: []string{dataModel},
+	// IfName filtering
+	ifaces := strings.ReplaceAll(f.config.Options["iface_filter"], " ", "")
+	ifList := strings.Split(ifaces, ",")
+
+	// Build the xPath lists
+	var ifPaths, subIfPaths []string
+	if ifList[0] == "" {
+		ifPaths = []string{ifState}
+		subIfPaths = []string{subIfState}
+	} else {
+		for _, name := range ifList {
+			// Interfaces
+			p := strings.ReplaceAll(ifState, "/interface/", "/interface[name="+name+"]/")
+			ifPaths = append(ifPaths, p)
+			// Subinterfaces
+			p = strings.ReplaceAll(subIfState, "/interface/", "/interface[name="+name+"]/")
+			subIfPaths = append(subIfPaths, p)
+		}
 	}
 
-	// If not disabled, also subscribe to subinterfaces
+	// Create the path list to be subscribed
+	fp := plugins.FormatterPaths{
+		Datamodels: []string{dataModel},
+	}
+	fp.XPaths = append(fp.XPaths, ifPaths...)
+	fp.XPaths = append(fp.XPaths, ifAggState)
+
+	// If not disabled, subscribe to subinterfaces
 	disableSubInt, _ := strconv.ParseBool(f.config.Options["disable_subint"])
 	if !disableSubInt {
-		fp.XPaths = append(fp.XPaths, subIfState)
+		fp.XPaths = append(fp.XPaths, subIfPaths...)
 	}
 
 	return fp
