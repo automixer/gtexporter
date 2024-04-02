@@ -48,7 +48,7 @@ func newFormatter(cfg plugins.Config) (plugins.Formatter, error) {
 // It implements the plugin's formatter interface
 func (f *ocIfFormatter) GetPaths() plugins.FormatterPaths {
 	// IfName filtering
-	ifaces := strings.ReplaceAll(f.config.Options["iface_filter"], " ", "")
+	ifaces := strings.ReplaceAll(f.config.Options["gnmi_filter"], " ", "")
 	ifList := strings.Split(ifaces, ",")
 
 	// Build the xPath lists

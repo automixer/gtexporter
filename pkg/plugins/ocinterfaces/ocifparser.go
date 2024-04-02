@@ -30,7 +30,9 @@ type ocIfParser struct {
 	plugins.ParserMon
 	yStruct *ysocif.Root
 	eMapper *ysocif.EnumMapper
-	rxSD    *regexp.Regexp
+	rxSD    *regexp.Regexp // Description sanitize
+	rxName  *regexp.Regexp // Interface name filter
+	rxIndex *regexp.Regexp // subInterface index filter
 }
 
 func newParser(cfg plugins.Config) (plugins.Parser, error) {
@@ -43,9 +45,28 @@ func newParser(cfg plugins.Config) (plugins.Parser, error) {
 	}
 	p.eMapper = ysocif.NewEnumMapper()
 	var err error
+	// Descriptions sanitize
 	p.rxSD, err = regexp.Compile(cfg.DescSanitize)
 	if err != nil {
 		return nil, err
+	}
+	// Interface name filter
+	if cfg.Options["name_filter"] != "" {
+		p.rxName, err = regexp.Compile(cfg.Options["name_filter"])
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		p.rxName = regexp.MustCompile(".*")
+	}
+	// SubInterface index filter
+	if cfg.Options["index_filter"] != "" {
+		p.rxIndex, err = regexp.Compile(cfg.Options["index_filter"])
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		p.rxIndex = regexp.MustCompile(".*")
 	}
 	return p, nil
 }
@@ -215,6 +236,11 @@ func (p *ocIfParser) ifStateCounters(nf *gnmi.Notification, updNum int) {
 		return
 	}
 
+	// Name filtering
+	if !p.rxName.MatchString(pathMeta.ifName) {
+		return
+	}
+
 	// Create the interface if missing
 	if _, ok := p.yStruct.Interface[pathMeta.ifName]; !ok {
 		newIf, err := p.yStruct.NewInterface(pathMeta.ifName)
@@ -278,6 +304,11 @@ func (p *ocIfParser) ifState(nf *gnmi.Notification, updNum int) {
 		return
 	}
 
+	// Name filtering
+	if !p.rxName.MatchString(pathMeta.ifName) {
+		return
+	}
+
 	// Create the interface if missing
 	if _, ok := p.yStruct.Interface[pathMeta.ifName]; !ok {
 		newIf, err := p.yStruct.NewInterface(pathMeta.ifName)
@@ -333,6 +364,11 @@ func (p *ocIfParser) ifAggState(nf *gnmi.Notification, updNum int) {
 		return
 	}
 
+	// Name filtering
+	if !p.rxName.MatchString(pathMeta.ifName) {
+		return
+	}
+
 	// Create the interface if missing
 	if _, ok := p.yStruct.Interface[pathMeta.ifName]; !ok {
 		newIf, err := p.yStruct.NewInterface(pathMeta.ifName)
@@ -367,6 +403,11 @@ func (p *ocIfParser) subIfStateCounters(nf *gnmi.Notification, updNum int) {
 	pathMeta, err := p.getPathMeta(nf.Prefix, nf.Update[updNum].Path)
 	if err != nil {
 		p.InvalidPath()
+		return
+	}
+
+	// Name and index filtering
+	if !p.rxName.MatchString(pathMeta.ifName) || !p.rxIndex.MatchString(fmt.Sprint(pathMeta.ifIndex)) {
 		return
 	}
 
@@ -437,6 +478,11 @@ func (p *ocIfParser) subIfState(nf *gnmi.Notification, updNum int) {
 	pathMeta, err := p.getPathMeta(nf.Prefix, nf.Update[updNum].Path)
 	if err != nil {
 		p.InvalidPath()
+		return
+	}
+
+	// Name and index filtering
+	if !p.rxName.MatchString(pathMeta.ifName) || !p.rxIndex.MatchString(fmt.Sprint(pathMeta.ifIndex)) {
 		return
 	}
 

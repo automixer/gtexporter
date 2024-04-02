@@ -1,7 +1,7 @@
 # These keys are plugin-specific and optional.
 # The configuration structure is as follows:
 devices:
-  - name: DEVICE1                   # Device name. Mandatory.
+  - name: DEVICE1
     # etc...
 
     # Plugin related keys:
@@ -13,8 +13,12 @@ devices:
       # etc...
 
 #==== oc_interfaces specific. ====
-      disable_subint: "true"              # Disables the SubInterfaces branch subscription and metrics collection
-      iface_filter:   "xe-0/0/0,ge-*"     # Comma separated list of interfaces to subscribe to.
-                                          # Globs accepted with some restrictions.
-                                          # See https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-path-conventions.md#wildcards-in-paths
-
+      disable_subint: "true"          # Disables the SubInterfaces branch subscription and metrics collection.
+      gnmi_filter: "xe-0/0/0,ge-*"    # Comma separated list of interfaces to subscribe to.
+                                      # This filter applies to gNMI subscriptions and is very vendor-dependent.
+                                      # Globs are accepted with some restrictions.
+                                      # See https://github.com/openconfig/reference/blob/master/rpc/gnmi/gnmi-path-conventions.md#wildcards-in-paths
+      name_filter: ".*"               # Interface's name regexp filter.
+                                      # Only interface records satisfying this regexp are passed.
+      index_filter: ".*"              # subInterface's index regexp filter.
+                                      # Only subInterface records satisfying this regexp are passed.
