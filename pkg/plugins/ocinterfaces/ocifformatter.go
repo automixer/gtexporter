@@ -167,11 +167,7 @@ func (f *ocIfFormatter) ifCounters() []exporter.GMetric {
 			metric.OperStatus = iface.GetOperStatus().ShortString()
 			metric.IfType = iface.GetType().ShortString()
 			metric.LagType = lagType
-			if desc := iface.GetDescription(); desc == "" {
-				metric.Description = alias
-			} else {
-				metric.Description = desc
-			}
+			metric.Description = iface.GetDescription()
 			// Values
 			metric.Metric = counterName
 			metric.Value = counterValue
@@ -223,11 +219,7 @@ func (f *ocIfFormatter) ifGauges() []exporter.GMetric {
 			metric.OperStatus = iface.GetOperStatus().ShortString()
 			metric.IfType = iface.GetType().ShortString()
 			metric.LagType = lagType
-			if desc := iface.GetDescription(); desc == "" {
-				metric.Description = alias
-			} else {
-				metric.Description = desc
-			}
+			metric.Description = iface.GetDescription()
 			// Values
 			metric.Metric = gaugeName
 			metric.Value = gaugeValue
@@ -282,11 +274,7 @@ func (f *ocIfFormatter) subIfCounters() []exporter.GMetric {
 				metric.AdminStatus = subIface.GetAdminStatus().ShortString()
 				metric.OperStatus = subIface.GetOperStatus().ShortString()
 				metric.LagType = lagType
-				if desc := subIface.GetDescription(); desc == "" {
-					metric.Description = fmt.Sprint(index)
-				} else {
-					metric.Description = desc
-				}
+				metric.Description = subIface.GetDescription()
 				// Values
 				metric.Metric = counterName
 				metric.Value = counterValue
@@ -339,11 +327,7 @@ func (f *ocIfFormatter) subIfGauges() []exporter.GMetric {
 				metric.AdminStatus = subIface.GetAdminStatus().ShortString()
 				metric.OperStatus = subIface.GetOperStatus().ShortString()
 				metric.LagType = lagType
-				if desc := subIface.GetDescription(); desc == "" {
-					metric.Description = fmt.Sprint(index)
-				} else {
-					metric.Description = desc
-				}
+				metric.Description = subIface.GetDescription()
 				// Values
 				metric.Metric = gaugeName
 				metric.Value = gaugeValue
