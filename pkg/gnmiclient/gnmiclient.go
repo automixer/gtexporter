@@ -473,13 +473,8 @@ func (c *GnmiClient) run(ctx context.Context) {
 		}
 
 		// Dial
-		timeout := c.config.ScrapeInterval * timeoutMultiplier
-		if timeout > time.Minute*5 {
-			timeout = time.Minute * 5
-		}
-		gCtx, gCtxCancelFunc = context.WithTimeout(ctx, timeout)
 		log.Infof("Dialing %s...", c.config.DevName)
-		conn, err = grpc.DialContext(gCtx, targetDev, dialOpts...)
+		conn, err = grpc.NewClient(targetDev, dialOpts...)
 		if err != nil {
 			log.Info(err)
 			c.incDialErrors()
@@ -488,6 +483,11 @@ func (c *GnmiClient) run(ctx context.Context) {
 		stub = gnmi.NewGNMIClient(conn)
 
 		// Check capabilities
+		timeout := c.config.ScrapeInterval * timeoutMultiplier
+		if timeout > time.Minute*5 {
+			timeout = time.Minute * 5
+		}
+		gCtx, gCtxCancelFunc = context.WithTimeout(ctx, timeout)
 		log.Infof("Checking %s capabilities...", c.config.DevName)
 		if err = c.checkCapabilities(gCtx, stub); err != nil {
 			log.Info(err)
