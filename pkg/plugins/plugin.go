@@ -45,6 +45,7 @@ type Config struct {
 	UseGoDefaults  bool
 	CacheData      bool
 	ScrapeInterval time.Duration
+	Options        map[string]string
 }
 
 // Plugin represents a plugin that collects metrics using a formatter and parser.
@@ -85,7 +86,7 @@ func New(cfg Config) (*Plugin, error) {
 
 	// Prepare descriptors for registration
 	desc := formatter.Describe()                                                        // User metrics from formatter
-	desc = append(desc, newFormatterMetric(prometheus.GaugeValue, plug.config.DevName)) // Formatter self monitoring
+	desc = append(desc, newFormatterMetric(prometheus.GaugeValue, plug.config.DevName)) // Formatter self-monitoring
 	desc = append(desc, parser.Describe()...)                                           // Parser self monitoring
 
 	// Register plugin to exporter
@@ -143,7 +144,7 @@ func (p *Plugin) GetMetrics(ch chan<- exporter.GMetric) {
 	fMon.PlugName = p.config.PlugName
 	ch <- fMon
 
-	// Gather self monitoring from parser
+	// Gather self-monitoring from parser
 	for _, m := range p.parser.Collect() {
 		ch <- m
 	}

@@ -5,6 +5,8 @@ import (
 	log "github.com/golang/glog"
 	"github.com/openconfig/ygot/ygot"
 	"github.com/prometheus/client_golang/prometheus"
+	"strconv"
+	"strings"
 
 	// Local packages
 	"github.com/automixer/gtexporter/pkg/datamodels/ysocif"
@@ -45,14 +47,44 @@ func newFormatter(cfg plugins.Config) (plugins.Formatter, error) {
 // GetPaths returns the XPaths and datamodels for the ocIfFormatter package.
 // It implements the plugin's formatter interface
 func (f *ocIfFormatter) GetPaths() plugins.FormatterPaths {
-	return plugins.FormatterPaths{
-		XPaths:     []string{ifState, ifAggState, subIfState},
+	// IfName filtering
+	ifaces := strings.ReplaceAll(f.config.Options["gnmi_filter"], " ", "")
+	ifList := strings.Split(ifaces, ",")
+
+	// Build the xPath lists
+	var ifPaths, subIfPaths []string
+	if ifList[0] == "" {
+		ifPaths = []string{ifState}
+		subIfPaths = []string{subIfState}
+	} else {
+		for _, name := range ifList {
+			// Interfaces
+			p := strings.ReplaceAll(ifState, "/interface/", "/interface[name="+name+"]/")
+			ifPaths = append(ifPaths, p)
+			// Subinterfaces
+			p = strings.ReplaceAll(subIfState, "/interface/", "/interface[name="+name+"]/")
+			subIfPaths = append(subIfPaths, p)
+		}
+	}
+
+	// Create the path list to be subscribed
+	fp := plugins.FormatterPaths{
 		Datamodels: []string{dataModel},
 	}
+	fp.XPaths = append(fp.XPaths, ifPaths...)
+	fp.XPaths = append(fp.XPaths, ifAggState)
+
+	// If not disabled, subscribe to subinterfaces
+	disableSubInt, _ := strconv.ParseBool(f.config.Options["disable_subint"])
+	if !disableSubInt {
+		fp.XPaths = append(fp.XPaths, subIfPaths...)
+	}
+
+	return fp
 }
 
 // ScrapeEvent implements the plugin's formatter interface.
-// It is called by the plugin when a scrape events occurs.
+// It is called by the plugin when a scrape event occurs.
 func (f *ocIfFormatter) ScrapeEvent(ys ygot.GoStruct) func() {
 	f.root = ysocif.GoStructToOcIf(ys)
 
@@ -135,11 +167,7 @@ func (f *ocIfFormatter) ifCounters() []exporter.GMetric {
 			metric.OperStatus = iface.GetOperStatus().ShortString()
 			metric.IfType = iface.GetType().ShortString()
 			metric.LagType = lagType
-			if desc := iface.GetDescription(); desc == "" {
-				metric.Description = alias
-			} else {
-				metric.Description = desc
-			}
+			metric.Description = iface.GetDescription()
 			// Values
 			metric.Metric = counterName
 			metric.Value = counterValue
@@ -191,11 +219,7 @@ func (f *ocIfFormatter) ifGauges() []exporter.GMetric {
 			metric.OperStatus = iface.GetOperStatus().ShortString()
 			metric.IfType = iface.GetType().ShortString()
 			metric.LagType = lagType
-			if desc := iface.GetDescription(); desc == "" {
-				metric.Description = alias
-			} else {
-				metric.Description = desc
-			}
+			metric.Description = iface.GetDescription()
 			// Values
 			metric.Metric = gaugeName
 			metric.Value = gaugeValue
@@ -250,11 +274,7 @@ func (f *ocIfFormatter) subIfCounters() []exporter.GMetric {
 				metric.AdminStatus = subIface.GetAdminStatus().ShortString()
 				metric.OperStatus = subIface.GetOperStatus().ShortString()
 				metric.LagType = lagType
-				if desc := subIface.GetDescription(); desc == "" {
-					metric.Description = fmt.Sprint(index)
-				} else {
-					metric.Description = desc
-				}
+				metric.Description = subIface.GetDescription()
 				// Values
 				metric.Metric = counterName
 				metric.Value = counterValue
@@ -307,11 +327,7 @@ func (f *ocIfFormatter) subIfGauges() []exporter.GMetric {
 				metric.AdminStatus = subIface.GetAdminStatus().ShortString()
 				metric.OperStatus = subIface.GetOperStatus().ShortString()
 				metric.LagType = lagType
-				if desc := subIface.GetDescription(); desc == "" {
-					metric.Description = fmt.Sprint(index)
-				} else {
-					metric.Description = desc
-				}
+				metric.Description = subIface.GetDescription()
 				// Values
 				metric.Metric = gaugeName
 				metric.Value = gaugeValue

@@ -1,10 +1,10 @@
-name: devel_image
+name: build_branch
 
 on:
   workflow_dispatch:
 
 jobs:
-  devel_image:
+  build_branch:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -37,5 +37,5 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: "${{ github.repository }}:devel"
+          tags: "${{ github.repository }}:${{ github.ref.name }}"
           labels: ${{ steps.meta.outputs.labels }}
