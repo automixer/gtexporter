@@ -37,5 +37,5 @@ jobs:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: "${{ github.repository }}:${{ github.ref.name }}"
+          tags: "${{ github.repository }}:${{ github.ref_name }}"
           labels: ${{ steps.meta.outputs.labels }}
