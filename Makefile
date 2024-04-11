@@ -22,6 +22,10 @@ gen_ysoclldp:
 	(cd pkg/datamodels/ysoclldp && go generate && goimports -w ./*)
 .PHONY: gen_ysoclldp
 
+gen_ysocpform:
+	(cd pkg/datamodels/ysocpform && go generate && goimports -w ./*)
+.PHONY: gen_ysocpform
+
 fmt:
 	go fmt ./...
 .PHONY: fmt
