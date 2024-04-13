@@ -129,15 +129,25 @@ func (p *ocIfParser) removeDbEntry(pfx, path *gnmi.Path) {
 		p.InvalidPath()
 		return
 	}
-	if pathMeta.isSubInt {
+	if !pathMeta.isSubInt {
+		// Delete interface
 		if _, ok := p.yStruct.Interface[pathMeta.ifName]; ok {
-			p.yStruct.Interface[pathMeta.ifName].DeleteSubinterface(pathMeta.ifIndex)
+			p.yStruct.DeleteInterface(pathMeta.ifName)
 		} else {
 			p.DeleteNotFound()
 		}
 	} else {
+		// Delete subinterface
 		if _, ok := p.yStruct.Interface[pathMeta.ifName]; ok {
-			p.yStruct.DeleteInterface(pathMeta.ifName)
+			if p.yStruct.Interface[pathMeta.ifName].Subinterface != nil {
+				if _, ok := p.yStruct.Interface[pathMeta.ifName].Subinterface[pathMeta.ifIndex]; ok {
+					p.yStruct.Interface[pathMeta.ifName].DeleteSubinterface(pathMeta.ifIndex)
+				} else {
+					p.DeleteNotFound()
+				}
+			} else {
+				p.DeleteNotFound()
+			}
 		} else {
 			p.DeleteNotFound()
 		}
