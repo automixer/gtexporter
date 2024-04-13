@@ -42,8 +42,8 @@ func newFormatter(cfg plugins.Config) (plugins.Formatter, error) {
 // GetPaths returns the XPaths and Datamodels for the ocLldpFormatter plugin.
 func (f *ocLldpFormatter) GetPaths() plugins.FormatterPaths {
 	return plugins.FormatterPaths{
-		XPaths:     []string{lldpNbState},
-		Datamodels: []string{dataModel},
+		XPaths:    []string{lldpNbState},
+		Datamodel: dataModel,
 	}
 }
 
@@ -61,7 +61,7 @@ func (f *ocLldpFormatter) Collect() []exporter.GMetric {
 }
 
 // ScrapeEvent implements the plugin's formatter interface.
-// It is called by the plugin when a scrape events occurs.
+// It is called by the plugin when a scrape event occurs.
 func (f *ocLldpFormatter) ScrapeEvent(ys ygot.GoStruct) func() {
 	f.root = ysoclldp.GoStructToOcLldp(ys)
 	return func() {

@@ -14,8 +14,8 @@ import (
 
 // FormatterPaths represents the paths to be subscribed by the client on behalf of the formatter needs.
 type FormatterPaths struct {
-	XPaths     []string
-	Datamodels []string
+	XPaths    []string
+	Datamodel string
 }
 
 // Formatter is an interface that defines the methods required from a formatter object.
@@ -106,9 +106,9 @@ func (p *Plugin) GetPathsToSubscribe() []string {
 	return p.formatterInfos.XPaths
 }
 
-// GetDataModels returns the list of data models associated with the plugin's formatter xPaths.
-func (p *Plugin) GetDataModels() []string {
-	return p.formatterInfos.Datamodels
+// GetDataModel returns the list of data models associated with the plugin's formatter xPaths.
+func (p *Plugin) GetDataModel() string {
+	return p.formatterInfos.Datamodel
 }
 
 // GetMetrics implements the exporter GMetricSource interface
@@ -169,7 +169,7 @@ func (p *Plugin) OnSync(status bool) {
 	p.onSync = status
 }
 
-// Notification sends the received GNMI notification to the parser, if cache mode is enabled.
+// Notification sends the received GNMI notification to the parser if cache mode is enabled.
 // If Passthrough mode is engaged, notifications are temporarily stored into a buffer.
 // The buffer content is then sent to the parser when a scrape event occurs.
 func (p *Plugin) Notification(nf *gnmi.Notification) {

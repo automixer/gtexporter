@@ -7,7 +7,7 @@ import (
 	"github.com/automixer/gtexporter/pkg/exporter"
 )
 
-// smMetric is a struct used for self monitoring tasks. It contains common fields inherited from
+// smMetric is a struct used for self-monitoring tasks. It contains common fields inherited from
 // exporter.MetricCommons, as well as additional fields specific to the
 // SM exporter.
 type smMetric struct {

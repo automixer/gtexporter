@@ -31,7 +31,7 @@ const (
 type plugin interface {
 	GetPlugName() string
 	GetPathsToSubscribe() []string
-	GetDataModels() []string
+	GetDataModel() string
 	OnSync(status bool)
 	Notification(nf *gnmi.Notification)
 }
@@ -53,6 +53,7 @@ type Config struct {
 	GnmiSubscriptionMode  gnmi.SubscriptionMode
 	GnmiUpdatesOnly       bool
 	OverSampling          int64
+	Vendor                string
 }
 
 // GnmiClient The gNMI client object
@@ -61,14 +62,16 @@ type GnmiClient struct {
 	config    Config
 	shutdown  func()
 	encoding  gnmi.Encoding
-	plugins   map[string]plugin // Map key: plugin name
-	xPaths    map[string]plugin // Map key: subscribed xPath (schema path)
-	xPathList []string          // Full paths list to be subscribed. Include YANG keys filter
+	plugins   map[string]plugin   // Map key: plugin name
+	xPathList map[string][]string // Map key: plugin name. Paths to be subscribed, including YANG keys filter
+	xPaths    map[string]plugin   // Map key: subscribed xPath (schema path used for routing subResponses)
+
 }
 
 // New Creates a new GnmiClient instance
 func New(cfg Config) (*GnmiClient, error) {
 	gClient := &GnmiClient{config: cfg}
+	gClient.xPathList = make(map[string][]string)
 	if err := gClient.clientMon.configure(cfg.DevName); err != nil {
 		return nil, err
 	}
@@ -95,14 +98,14 @@ func (c *GnmiClient) RegisterPlugin(name string, plug plugin) error {
 		return fmt.Errorf("plugin cannot be nil")
 	}
 
-	// Before registering, check for duplicated xpath
 	if c.xPaths == nil {
 		c.xPaths = make(map[string]plugin)
 	}
+
 	plugPaths := plug.GetPathsToSubscribe()
 	re := regexp.MustCompile(`\[.*?]`)
 	for _, reqPath := range plugPaths {
-		c.xPathList = append(c.xPathList, reqPath)
+		c.xPathList[name] = append(c.xPathList[name], reqPath)
 		// Remove keys from YANG path
 		reqPath = re.ReplaceAllString(reqPath, "")
 		c.xPaths[reqPath] = plug
@@ -212,14 +215,16 @@ func (c *GnmiClient) checkCapabilities(ctx context.Context, stub gnmi.GNMIClient
 		supportedModels[model.Name] = model
 	}
 	for _, plug := range c.plugins {
-		for _, reqModel := range plug.GetDataModels() {
-			if _, ok := supportedModels[reqModel]; !ok {
-				return fmt.Errorf("the yang model <%s> is not supported by %s", reqModel, c.config.DevName)
-			}
+		reqModel := plug.GetDataModel()
+		if _, ok := supportedModels[reqModel]; !ok {
+			return fmt.Errorf("the yang model <%s> is not supported by %s", reqModel, c.config.DevName)
 		}
 	}
 
-	// Pick an encoding
+	// Pick protocol buffer by default
+	c.encoding = gnmi.Encoding_PROTO
+
+	// Override if required
 	if c.config.ForceEncoding != "" {
 		// Config enforces encoding
 		c.config.ForceEncoding = strings.ToUpper(c.config.ForceEncoding)
@@ -237,83 +242,8 @@ func (c *GnmiClient) checkCapabilities(ctx context.Context, stub gnmi.GNMIClient
 		default:
 			return fmt.Errorf("the encoding %s is not supported by gNMI", c.config.ForceEncoding)
 		}
-	} else {
-		// Pick the first available
-		suppEnc := caps.GetSupportedEncodings()
-		if len(suppEnc) > 0 {
-			c.encoding = suppEnc[0]
-		} else {
-			return fmt.Errorf("%s: error reading supported encodings", c.config.DevName)
-		}
 	}
 	return nil
-}
-
-// subscribe creates a subscription client and sends SubscribeRequests to the server.
-// It returns the subscription client and any error encountered during the process.
-// The method subscribes to plugins' specified paths and constructs SubscriptionList and
-// SubscribeRequest for each configured plugin.
-func (c *GnmiClient) subscribe(ctx context.Context, stub gnmi.GNMIClient) (gnmi.GNMI_SubscribeClient, error) {
-	// Create client
-	gNMISubClt, err := stub.Subscribe(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if c.config.OverSampling == 0 {
-		c.config.OverSampling = oversampling
-	}
-	if c.config.OverSampling < 1 || c.config.OverSampling > 10 {
-		log.Warningf("%s: Oversampling must fall between 1 and 10", c.config.DevName)
-		c.config.OverSampling = oversampling
-	}
-	sampleInterval := uint64(c.config.ScrapeInterval.Nanoseconds() / c.config.OverSampling)
-
-	// Prepare Subscription struct slice
-	subscriptions := make([]*gnmi.Subscription, 0)
-	for i := 0; i < len(c.plugins); i++ {
-		// One subscription for each plugin's path
-		for _, path := range c.xPathList {
-			p, err := ygot.StringToPath(path, ygot.StructuredPath, ygot.StringSlicePath)
-			if err != nil {
-				log.Error(err)
-				continue
-			}
-			newSub := &gnmi.Subscription{
-				Path:              p,
-				Mode:              c.config.GnmiSubscriptionMode,
-				SampleInterval:    sampleInterval,
-				SuppressRedundant: false,
-				HeartbeatInterval: 0,
-			}
-			subscriptions = append(subscriptions, newSub)
-		}
-	}
-
-	// Prepare the SubscriptionList struct
-	subList := &gnmi.SubscriptionList{
-		Prefix:           nil,
-		Subscription:     subscriptions,
-		Qos:              nil,
-		Mode:             gnmi.SubscriptionList_STREAM,
-		AllowAggregation: false,
-		UseModels:        nil,
-		Encoding:         c.encoding,
-		UpdatesOnly:      c.config.GnmiUpdatesOnly,
-	}
-
-	// Prepare the SubscribeRequest struct
-	request := &gnmi.SubscribeRequest{
-		Request:   &gnmi.SubscribeRequest_Subscribe{Subscribe: subList},
-		Extension: nil,
-	}
-
-	// Send it to the device
-	err = gNMISubClt.Send(request)
-	if err != nil {
-		return nil, err
-	}
-
-	return gNMISubClt, nil
 }
 
 // receive takes care of receiving the GNMI stream from the device
@@ -364,6 +294,10 @@ func (c *GnmiClient) routeSr(sr *gnmi.SubscribeResponse) {
 	nf := sr.GetUpdate() // Beware! GetUpdate() actually returns a notification, not an Update :-(
 	c.incNfCounters(uint64(len(nf.GetUpdate())), uint64(len(nf.GetDelete())))
 	if nf.GetPrefix().GetTarget() != "" {
+		// Huawei specific
+		if c.config.Vendor == "huawei" {
+			c.removeDmPfxFromPath(nf)
+		}
 		// Normal messages routing
 		if _, ok := c.plugins[nf.Prefix.Target]; !ok {
 			// Unknown destination
@@ -372,12 +306,18 @@ func (c *GnmiClient) routeSr(sr *gnmi.SubscribeResponse) {
 		}
 		c.plugins[nf.Prefix.Target].Notification(nf)
 	} else {
-		// Device does not support gnmi targeting, or the subscription does not include a prefix target
+		// Huawei specific
+		if c.config.Vendor == "huawei" {
+			c.removeDmPfxFromPath(nf)
+		}
+
+		// The device does not support gnmi targeting, or the subscription does not include a target
 		pfx, _ := ygot.PathToSchemaPath(nf.Prefix)
 		if len(pfx) < 2 {
 			// Empty prefix
 			pfx = ""
 		}
+
 		// Search for Updates
 		for _, upd := range nf.GetUpdate() {
 			path, _ := ygot.PathToSchemaPath(upd.Path)
@@ -403,6 +343,40 @@ func (c *GnmiClient) routeSr(sr *gnmi.SubscribeResponse) {
 		// Unknown destination
 		// Sr response error field is deprecated and not handled
 		c.incSrRoutingErrors()
+	}
+}
+
+// removeDmPfxFromPath sanitizes the prefix, updates, and deletes paths in the given
+// gnmi.Notification object. It removes any namespace prefix from the path names to
+// ensure consistent handling of paths across plugins.
+// NOTE: the deprecated "element" field is not supported
+func (c *GnmiClient) removeDmPfxFromPath(nf *gnmi.Notification) {
+	// Sanitize Prefix
+	if nf.Prefix != nil && len(nf.Prefix.Elem) > 0 {
+		splitted := strings.SplitAfter(nf.Prefix.Elem[0].Name, ":")
+		if len(splitted) == 2 {
+			nf.Prefix.Elem[0].Name = splitted[1]
+		}
+	}
+
+	// Sanitize updates
+	for i := 0; i < len(nf.Update); i++ {
+		if nf.Update[i] != nil && nf.Update[i].Path != nil && len(nf.Update[i].Path.Elem) > 0 {
+			splitted := strings.SplitAfter(nf.Update[i].Path.Elem[0].Name, ":")
+			if len(splitted) == 2 {
+				nf.Update[i].Path.Elem[0].Name = splitted[1]
+			}
+		}
+	}
+
+	// Sanitize deletes
+	for i := 0; i < len(nf.Delete); i++ {
+		if len(nf.Delete[i].Elem) > 0 {
+			splitted := strings.SplitAfter(nf.Delete[i].Elem[0].Name, ":")
+			if len(splitted) == 2 {
+				nf.Delete[i].Elem[0].Name = splitted[1]
+			}
+		}
 	}
 }
 

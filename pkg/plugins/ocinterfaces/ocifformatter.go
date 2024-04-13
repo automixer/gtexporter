@@ -32,15 +32,21 @@ func init() {
 }
 
 type ocIfFormatter struct {
-	config   plugins.Config
-	root     *ysocif.Root
-	lagTable map[string]string // Key: ifName, Value: LAG name
-	lagSet   map[string]bool   // Key: lagName
+	config        plugins.Config
+	root          *ysocif.Root
+	lagTable      map[string]string // Key: ifName, Value: LAG name
+	lagSet        map[string]bool   // Key: lagName
+	disableInt    bool
+	disableAgg    bool
+	disableSubInt bool
 }
 
 func newFormatter(cfg plugins.Config) (plugins.Formatter, error) {
 	f := &ocIfFormatter{}
 	f.config = cfg
+	f.disableInt, _ = strconv.ParseBool(f.config.Options["disable_int"])
+	f.disableAgg, _ = strconv.ParseBool(f.config.Options["disable_agg"])
+	f.disableSubInt, _ = strconv.ParseBool(f.config.Options["disable_subint"])
 	return f, nil
 }
 
@@ -69,14 +75,18 @@ func (f *ocIfFormatter) GetPaths() plugins.FormatterPaths {
 
 	// Create the path list to be subscribed
 	fp := plugins.FormatterPaths{
-		Datamodels: []string{dataModel},
+		Datamodel: dataModel,
 	}
-	fp.XPaths = append(fp.XPaths, ifPaths...)
-	fp.XPaths = append(fp.XPaths, ifAggState)
-
-	// If not disabled, subscribe to subinterfaces
-	disableSubInt, _ := strconv.ParseBool(f.config.Options["disable_subint"])
-	if !disableSubInt {
+	// If not disabled, subscribe to interface state
+	if !f.disableInt {
+		fp.XPaths = append(fp.XPaths, ifPaths...)
+	}
+	// If not disabled, subscribe to interface aggregation state
+	if !f.disableAgg {
+		fp.XPaths = append(fp.XPaths, ifAggState)
+	}
+	// If not disabled, subscribe to subinterface state
+	if !f.disableSubInt {
 		fp.XPaths = append(fp.XPaths, subIfPaths...)
 	}
 
@@ -117,10 +127,18 @@ func (f *ocIfFormatter) Describe() []exporter.GMetric {
 // Collect implements the plugin's formatter interface.
 // It calls all the methods to generate Metrics from the yGot GoStruct content.
 func (f *ocIfFormatter) Collect() []exporter.GMetric {
-	out := f.ifCounters()
-	out = append(out, f.ifGauges()...)
-	out = append(out, f.subIfCounters()...)
-	out = append(out, f.subIfGauges()...)
+	out := make([]exporter.GMetric, 0)
+
+	if !f.disableInt {
+		out = append(out, f.ifCounters()...)
+		out = append(out, f.ifGauges()...)
+	}
+
+	if !f.disableSubInt {
+		out = append(out, f.subIfCounters()...)
+		out = append(out, f.subIfGauges()...)
+	}
+
 	return out
 }
 

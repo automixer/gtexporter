@@ -37,7 +37,7 @@ func (p *ParserMon) Configure(cfg Config) error {
 }
 
 // Describe implements the plugin's parser interface.
-// It returns an GMetric to describe the metric itself.
+// It returns a GMetric to describe the metric itself.
 func (p *ParserMon) Describe() []exporter.GMetric {
 	return []exporter.GMetric{newParserMetric(prometheus.CounterValue, p.Cfg.DevName)}
 }
@@ -62,7 +62,7 @@ func (p *ParserMon) Collect() []exporter.GMetric {
 	return out
 }
 
-// UpdateDuplicates takes an uint64 parameter representing the value of the duplicates field of the update.
+// UpdateDuplicates takes an uint64 parameter representing the value of the duplicate field in to the update.
 func (p *ParserMon) UpdateDuplicates(dups uint64) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()

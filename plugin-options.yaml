@@ -12,8 +12,11 @@ devices:
       option3: "option2 value"
       # etc...
 
-#==== oc_interfaces specific. ====
-      disable_subint: "true"          # Disables the SubInterfaces branch subscription and metrics collection.
+#==== oc_interfaces specific ====
+      disable_int: "true"             # Disables the interface/state branch subscription and metrics collection.
+      disable_subint: "true"          # Disables the subInterface/state branch subscription and metrics collection.
+      disable_agg: "true"             # Disables the aggregation/state branch subscription and metrics collection.
+      disable_gnmi_delete: "true"     # Disables the processing of gNMI delete messages.
       gnmi_filter: "xe-0/0/0,ge-*"    # Comma separated list of interfaces to subscribe to.
                                       # This filter applies to gNMI subscriptions and is very vendor-dependent.
                                       # Globs are accepted with some restrictions.
@@ -22,3 +25,6 @@ devices:
                                       # Only interface records satisfying this regexp are passed.
       index_filter: ".*"              # subInterface's index regexp filter.
                                       # Only subInterface records satisfying this regexp are passed.
+---
+#==== oc_lldp specific ====
+      disable_gnmi_delete: "true"     # Disables the processing of gNMI delete messages.
