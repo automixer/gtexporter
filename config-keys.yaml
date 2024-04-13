@@ -44,7 +44,7 @@ devices:
                                     # "[a-zA-Z0-9_:\\-/]". Any character in the description that doesn't match
                                     # the pattern will be removed
     options: <plugin options>       # Plugin specific options. See plugin-options.yaml
-    vendor:                         # Can be "generic" or "huawei". If not present, "generic" is used.
+    vendor: generic                 # Can be "generic" or "huawei". If not present, "generic" is used.
 
     # gNMI related keys:
     force_encoding: proto           # Force the gNMI client to use a specific encoding. Acceptable values are:
