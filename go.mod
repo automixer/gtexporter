@@ -7,7 +7,7 @@ require (
 	github.com/openconfig/gnmi v0.11.0
 	github.com/openconfig/ygot v0.29.18
 	github.com/prometheus/client_golang v1.19.0
-	google.golang.org/grpc v1.63.0
+	google.golang.org/grpc v1.63.2
 	gopkg.in/yaml.v2 v2.4.0
 )
 
