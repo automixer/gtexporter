@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	minScrapeInterval = 10 * time.Second
+	minScrapeInterval = time.Second
 	minSessionTTL     = 10 * time.Minute
 )
 

@@ -5,7 +5,7 @@ global:
                                       # It must satisfy the regex ^[a-zA-Z0-9_]*$
   listen_address: 0.0.0.0             # Prometheus exporter listen address. Defaults to 0.0.0.0
   listen_port: 9456                   # Prometheus exporter listen port. Defaults to 9456
-  scrape_interval: 1m                 # The scrape interval configured on Prometheus server. No less than 10 seconds.
+  scrape_interval: 1m                 # The scrape interval configured on Prometheus server. No less than 1 second.
 
 
 # These keys are shared among all device configurations and are overridden by the device section keys.
