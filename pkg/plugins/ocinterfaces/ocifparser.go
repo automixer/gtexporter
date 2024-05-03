@@ -28,28 +28,36 @@ type pathMetadata struct {
 
 type ocIfParser struct {
 	plugins.ParserMon
-	yStruct *ysocif.Root
-	eMapper *ysocif.EnumMapper
-	rxSD    *regexp.Regexp // Description sanitize
-	rxName  *regexp.Regexp // Interface name filter
-	rxIndex *regexp.Regexp // subInterface index filter
+	yStruct        *ysocif.Root
+	eMapper        *ysocif.EnumMapper
+	rxSD           *regexp.Regexp // Description sanitize
+	rxName         *regexp.Regexp // Interface name filter
+	rxIndex        *regexp.Regexp // subInterface index filter
+	disableDeletes bool
 }
 
 func newParser(cfg plugins.Config) (plugins.Parser, error) {
 	p := &ocIfParser{}
+	p.disableDeletes, _ = strconv.ParseBool(cfg.Options["disable_gnmi_delete"])
+
+	// Load parser self-monitoring
 	if err := p.ParserMon.Configure(cfg); err != nil {
 		return nil, err
 	}
+
+	// Initialise the GoStruct and enum mapper
 	p.yStruct = &ysocif.Root{
 		Interface: make(map[string]*ysocif.Interface, yStructInitialSize),
 	}
 	p.eMapper = ysocif.NewEnumMapper()
+
+	// Descriptions sanitization
 	var err error
-	// Descriptions sanitize
 	p.rxSD, err = regexp.Compile(cfg.DescSanitize)
 	if err != nil {
 		return nil, err
 	}
+
 	// Interface name filter
 	if cfg.Options["name_filter"] != "" {
 		p.rxName, err = regexp.Compile(cfg.Options["name_filter"])
@@ -59,6 +67,7 @@ func newParser(cfg plugins.Config) (plugins.Parser, error) {
 	} else {
 		p.rxName = regexp.MustCompile(".*")
 	}
+
 	// SubInterface index filter
 	if cfg.Options["index_filter"] != "" {
 		p.rxIndex, err = regexp.Compile(cfg.Options["index_filter"])
@@ -68,6 +77,7 @@ func newParser(cfg plugins.Config) (plugins.Parser, error) {
 	} else {
 		p.rxIndex = regexp.MustCompile(".*")
 	}
+
 	return p, nil
 }
 
@@ -88,8 +98,10 @@ func (p *ocIfParser) ParseNotification(nf *gnmi.Notification) {
 	}
 
 	// Process GNMI delete messages
-	for _, gDelete := range nf.Delete {
-		p.removeDbEntry(nf.Prefix, gDelete)
+	if !p.disableDeletes {
+		for _, gDelete := range nf.Delete {
+			p.removeDbEntry(nf.Prefix, gDelete)
+		}
 	}
 
 	// Process GNMI update messages
@@ -117,15 +129,25 @@ func (p *ocIfParser) removeDbEntry(pfx, path *gnmi.Path) {
 		p.InvalidPath()
 		return
 	}
-	if pathMeta.isSubInt {
+	if !pathMeta.isSubInt {
+		// Delete interface
 		if _, ok := p.yStruct.Interface[pathMeta.ifName]; ok {
-			p.yStruct.Interface[pathMeta.ifName].DeleteSubinterface(pathMeta.ifIndex)
+			p.yStruct.DeleteInterface(pathMeta.ifName)
 		} else {
 			p.DeleteNotFound()
 		}
 	} else {
+		// Delete subinterface
 		if _, ok := p.yStruct.Interface[pathMeta.ifName]; ok {
-			p.yStruct.DeleteInterface(pathMeta.ifName)
+			if p.yStruct.Interface[pathMeta.ifName].Subinterface != nil {
+				if _, ok := p.yStruct.Interface[pathMeta.ifName].Subinterface[pathMeta.ifIndex]; ok {
+					p.yStruct.Interface[pathMeta.ifName].DeleteSubinterface(pathMeta.ifIndex)
+				} else {
+					p.DeleteNotFound()
+				}
+			} else {
+				p.DeleteNotFound()
+			}
 		} else {
 			p.DeleteNotFound()
 		}
@@ -348,6 +370,8 @@ func (p *ocIfParser) ifState(nf *gnmi.Notification, updNum int) {
 	case "oper-status":
 		target.OperStatus = ysocif.E_Interface_OperStatus(
 			p.eMapper.GetEnumFromString(source.GetStringVal(), target.OperStatus))
+	case "tpid":
+		// tpid isn't handled but present to avoid false LeafNotFound() counting
 	case "type":
 		target.Type = ysocif.E_IETFInterfaces_InterfaceType(
 			p.eMapper.GetEnumFromString(source.GetStringVal(), target.Type))

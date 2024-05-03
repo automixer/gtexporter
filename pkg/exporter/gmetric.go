@@ -74,17 +74,17 @@ func getLabelValues(m GMetric) []string {
 	return labelValues
 }
 
-// buildFQName builds a fully-qualified metric name using the provided prefix and MetricCommons.
+// buildFQName builds a fully qualified metric name using the provided prefix and MetricCommons.
 // It appends "_counters" or "_gauges" to the metric name based on its Type.
 // Parameters:
 // - pfx: the prefix for the metric name
 // - mc: the MetricCommons object containing the metric name and type
-// Returns the fully-qualified metric name as a string.
+// Returns the fully qualified metric name as a string.
 func buildFQName(pfx string, mc MetricCommons) string {
 	fqName := prometheus.BuildFQName(pfx, "", mc.Name)
 	switch mc.getCommons().Type {
 	case prometheus.CounterValue:
-		fqName += "_counters"
+		fqName += "_total"
 	case prometheus.GaugeValue:
 		fqName += "_gauges"
 	case prometheus.UntypedValue:

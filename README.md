@@ -57,7 +57,8 @@ docker run -p 9456:9456/tcp --mount type=bind,source=.,target=/etc/gte/ automixe
 The mandatory argument is a config file named ```config.yaml``` into the current folder.
 
 ### The Configuration File
-This [configuration file template](config-keys.yaml) describes the supported configuration keys.  
+This [configuration file template](config-keys.yaml) and this [addendum](plugin-options.yaml) 
+describes the supported configuration keys.  
 The file is subdivided into three sections:
 1) The ```global``` section contains application-wide settings like the Prometheus client listen address and port.
 2) The ```device_template``` section contains the settings shared among all devices. This section can
@@ -105,7 +106,7 @@ Subscribe to these schema paths:
 3) ```/interfaces/interface/subinterfaces/subinterface/state/```
 
 Produces two Prometheus metrics:
-1) ```<configured_metric_prefix>_oc_if_counters{}```.
+1) ```<configured_metric_prefix>_oc_if_total{}```.
 2) ```<configured_metric_prefix>_oc_if_gauges{}```.
 
 ### ```oc_lldp```
@@ -121,13 +122,13 @@ LLDP must be enabled on the target devices.
 In addition to the ```schema plugins```, **GtExporter** emits several self-monitoring metrics to keep track of 
 the app's health and operational state.  
 These metrics are:
-1) ```<configured_metric_prefix>_gnmi_client_counters{}```: These counters describe the state of the underlying gNMI
+1) ```<configured_metric_prefix>_gnmi_client_total{}```: These counters describe the state of the underlying gNMI
 client instances.
 2) ```<configured_metric_prefix>_gnmi_client_gauges{}```: These gauges describe the state of the underlying gNMI
 client instances.
 3) ```<configured_metric_prefix>_plugin_formatter_gauges{}```: These gauges describe the operational state of the 
 running plugin's formatters.
-4) ```<configured_metric_prefix>_plugin_parser_counters{}```: These counters describe the operational state of the 
+4) ```<configured_metric_prefix>_plugin_parser_total{}```: These counters describe the operational state of the 
 running plugin's parsers.
 5) The default Go Runtime Metrics exported by the Prometheus client library.
 

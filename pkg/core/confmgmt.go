@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	minScrapeInterval = 10 * time.Second
+	minScrapeInterval = time.Second
 	minSessionTTL     = 10 * time.Minute
 )
 
@@ -159,6 +159,7 @@ func (c *Core) buildGnmiClientCfg(yCfg *yamlConfig, index int) {
 		TLSCa:         src.Keys["tls_ca"],
 		ForceEncoding: src.Keys["force_encoding"],
 		DevName:       src.Keys["name"],
+		Vendor:        src.Keys["vendor"],
 	}
 	// Bool values
 	flag, _ := strconv.ParseBool(src.Keys["tls"])

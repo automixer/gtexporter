@@ -6,6 +6,7 @@ import (
 	"github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ygot/ygot"
 	"regexp"
+	"strconv"
 	"strings"
 
 	// Local packages
@@ -29,15 +30,17 @@ type pathMetadata struct {
 // and a regular expression used for sanitizing description strings.
 type ocLldpParser struct {
 	plugins.ParserMon
-	yStruct *ysoclldp.Root
-	eMapper *ysoclldp.EnumMapper
-	rxSD    *regexp.Regexp
+	yStruct        *ysoclldp.Root
+	eMapper        *ysoclldp.EnumMapper
+	rxSD           *regexp.Regexp
+	disableDeletes bool
 }
 
 // newParser creates a new ocLldpParser and initializes its fields based on the given configuration.
 // It returns the newly created parser or an error if there was an issue during initialization.
 func newParser(cfg plugins.Config) (plugins.Parser, error) {
 	p := &ocLldpParser{}
+	p.disableDeletes, _ = strconv.ParseBool(cfg.Options["disable_gnmi_delete"])
 	if err := p.ParserMon.Configure(cfg); err != nil {
 		return nil, err
 	}
@@ -133,8 +136,10 @@ func (p *ocLldpParser) ParseNotification(nf *gnmi.Notification) {
 	}
 
 	// Process GNMI delete messages
-	for _, gDelete := range nf.Delete {
-		p.removeDbEntry(nf.Prefix, gDelete)
+	if !p.disableDeletes {
+		for _, gDelete := range nf.Delete {
+			p.removeDbEntry(nf.Prefix, gDelete)
+		}
 	}
 
 	// Process GNMI update messages
