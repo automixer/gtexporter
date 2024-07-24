@@ -1,4 +1,4 @@
-FROM golang:1.22.0-bookworm as builder
+FROM --platform=$BUILDPLATFORM golang:1.22.5 AS builder
 
 WORKDIR /app
 COPY . /app
