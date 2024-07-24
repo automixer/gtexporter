@@ -10,11 +10,7 @@ FROM ubuntu:24.04
 
 COPY --from=builder /app/build/gtexporter /usr/local/bin
 
-RUN apt-get update && \
-    apt-get -y dist-upgrade && \
-    apt-get clean && \
-    rm -r /var/lib/apt/lists/* && \
-    groupadd -r gtexporter && \
+RUN groupadd -r gtexporter && \
     useradd -r -g gtexporter gtexporter
 
 USER gtexporter
