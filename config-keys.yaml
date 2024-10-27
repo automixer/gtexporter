@@ -7,9 +7,9 @@ global:
   listen_port: 9456                   # Prometheus exporter listen port. Defaults to 9456
   listen_path: /metrics               # Http endpoint for Prometheus scraping.
   scrape_interval: 1m                 # The scrape interval configured on Prometheus server. No less than 1 second.
-  static_labels:                      # User defined list of label/value to be added to all metrics. Can be null.
-    - label1: value1
-    - label2: value2
+  static_labels:                      # User defined labels/values to be added to all metrics. Can be null.
+    label1: value1
+    label2: value2
 
 # These keys are shared among all device configurations and are overridden by the device section keys.
 device_template:
