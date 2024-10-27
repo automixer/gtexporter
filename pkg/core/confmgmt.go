@@ -20,6 +20,16 @@ const (
 	minSessionTTL     = 10 * time.Minute
 )
 
+type yamlGlobalConfig struct {
+	InstanceName   string            `yaml:"instance_name"`
+	MetricPrefix   string            `yaml:"metric_prefix"`
+	ListenAddress  string            `yaml:"listen_address"`
+	ListenPort     string            `yaml:"listen_port"`
+	ListenPath     string            `yaml:"listen_path"`
+	ScrapeInterval string            `yaml:"scrape_interval"`
+	StaticLabels   map[string]string `yaml:"static_labels"`
+}
+
 type yamlDevConfig struct {
 	Keys    map[string]string `yaml:"devices,inline"`
 	Plugins []string          `yaml:"plugins"`
@@ -27,8 +37,8 @@ type yamlDevConfig struct {
 }
 
 type yamlConfig struct {
-	Global    map[string]string `yaml:"global"`
-	Templates yamlDevConfig     `yaml:"device_template"`
+	Global    yamlGlobalConfig `yaml:"global"`
+	Templates yamlDevConfig    `yaml:"device_template"`
 	Devices   []yamlDevConfig
 }
 
@@ -97,25 +107,34 @@ func (c *Core) parseAppConfig(yCfg *yamlConfig) error {
 // validateGlobalConfig validates the global configuration section in the configuration file.
 func (c *Core) validateGlobalConfig(yCfg *yamlConfig) error {
 	// Global section
-	if yCfg.Global["instance_name"] == "" {
-		yCfg.Global["instance_name"] = "default"
+	if yCfg.Global.InstanceName == "" {
+		yCfg.Global.InstanceName = "default"
 	}
-	if yCfg.Global["listen_address"] == "" {
-		yCfg.Global["listen_address"] = "0.0.0.0"
+	if yCfg.Global.ListenAddress == "" {
+		yCfg.Global.ListenAddress = "0.0.0.0"
 	}
-	if yCfg.Global["listen_port"] == "" {
-		yCfg.Global["listen_port"] = "9456"
+	if yCfg.Global.ListenPort == "" {
+		yCfg.Global.ListenPort = "9456"
 	}
-	if yCfg.Global["listen_path"] == "" {
-		yCfg.Global["listen_path"] = "/metrics"
+	if yCfg.Global.ListenPath == "" {
+		yCfg.Global.ListenPath = "/metrics"
 	}
 	rx := regexp.MustCompile("^[a-zA-Z0-9_]*$")
-	if !rx.MatchString(yCfg.Global["metric_prefix"]) {
-		return fmt.Errorf("%s is not a valid Prometheus metric name", yCfg.Global["metric_prefix"])
+	if !rx.MatchString(yCfg.Global.MetricPrefix) {
+		return fmt.Errorf("%s is not a valid Prometheus metric name", yCfg.Global.MetricPrefix)
 	}
-	sInt, _ := time.ParseDuration(yCfg.Global["scrape_interval"])
+	sInt, _ := time.ParseDuration(yCfg.Global.ScrapeInterval)
 	if sInt < minScrapeInterval {
 		return fmt.Errorf("scrape interval must be greater than or equal to %s", minScrapeInterval)
+	}
+	if yCfg.Global.StaticLabels == nil {
+		yCfg.Global.StaticLabels = make(map[string]string)
+	} else {
+		for k := range yCfg.Global.StaticLabels {
+			if !rx.MatchString(k) {
+				return fmt.Errorf("%s is not a valid Prometheus static_label name", k)
+			}
+		}
 	}
 	return nil
 }
@@ -137,11 +156,14 @@ func (c *Core) validateDeviceConfig(yCfg *yamlDevConfig) error {
 // buildExporterCfg builds the exporter configuration struct based on the provided yamlConfig object.
 func (c *Core) buildExporterCfg(yCfg *yamlConfig) {
 	c.exporterCfg = exporter.Config{
-		ListenAddress: yCfg.Global["listen_address"],
-		ListenPort:    yCfg.Global["listen_port"],
-		ListenPath:    yCfg.Global["listen_path"],
-		InstanceName:  yCfg.Global["instance_name"],
-		MetricPrefix:  yCfg.Global["metric_prefix"],
+		ListenAddress: yCfg.Global.ListenAddress,
+		ListenPort:    yCfg.Global.ListenPort,
+		ListenPath:    yCfg.Global.ListenPath,
+		InstanceName:  yCfg.Global.InstanceName,
+		MetricPrefix:  yCfg.Global.MetricPrefix,
+	}
+	for k, v := range yCfg.Global.StaticLabels {
+		c.exporterCfg.StaticLabels = append(c.exporterCfg.StaticLabels, exporter.StaticLabel{Key: k, Value: v})
 	}
 }
 
@@ -175,7 +197,7 @@ func (c *Core) buildGnmiClientCfg(yCfg *yamlConfig, index int) {
 	// Int values
 	newDev.OverSampling, _ = strconv.ParseInt(src.Keys["oversampling"], 10, 64)
 	// Duration values
-	scrapeInterval, _ := time.ParseDuration(yCfg.Global["scrape_interval"])
+	scrapeInterval, _ := time.ParseDuration(yCfg.Global.ScrapeInterval)
 	newDev.ScrapeInterval = scrapeInterval
 	maxLife, err := time.ParseDuration(src.Keys["max_life"])
 	if err == nil && maxLife < minSessionTTL {
@@ -220,7 +242,7 @@ func (c *Core) buildPluginCfg(yCfg *yamlConfig, index int) {
 			newPlug.CacheData = true
 		}
 		// Duration values
-		scrapeInterval, _ := time.ParseDuration(yCfg.Global["scrape_interval"])
+		scrapeInterval, _ := time.ParseDuration(yCfg.Global.ScrapeInterval)
 		newPlug.ScrapeInterval = scrapeInterval
 		c.plugCfg[src.Keys["name"]] = append(c.plugCfg[src.Keys["name"]], newPlug)
 		// Plugin options

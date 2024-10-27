@@ -19,12 +19,18 @@ type GMetricSource interface {
 	GetMetrics(ch chan<- GMetric)
 }
 
+type StaticLabel struct {
+	Key   string
+	Value string
+}
+
 type Config struct {
 	ListenAddress string
 	ListenPort    string
 	ListenPath    string
 	InstanceName  string
 	MetricPrefix  string
+	StaticLabels  []StaticLabel
 }
 
 type promExporter struct {
@@ -51,6 +57,9 @@ func New(cfg Config) (*promExporter, error) {
 func (p *promExporter) Start() error {
 	lAddr := p.config.ListenAddress + ":" + p.config.ListenPort
 	if err := prometheus.Register(p); err != nil {
+		log.Errorf(
+			"cannot register Prometheus metric descriptors. " +
+				"please check configured static labels against plugins labels. ")
 		return err
 	}
 	http.Handle(p.config.ListenPath, promhttp.Handler())
@@ -110,6 +119,9 @@ func (p *promExporter) Collect(ch chan<- prometheus.Metric) {
 			}
 			// Prepare labels
 			lv := []string{p.config.InstanceName, commons.Device}
+			for _, slv := range p.config.StaticLabels {
+				lv = append(lv, slv.Value)
+			}
 			lv = append(lv, getLabelValues(gMetric)...)
 			// Send metric to Prom
 			pMetric, err := prometheus.NewConstMetric(desc, commons.Type, commons.Value, lv...)
@@ -170,6 +182,9 @@ func (p *promExporter) registerSource(src GMetricSource, metrics []GMetric) erro
 			continue
 		}
 		labelKeys := []string{"instance_name", "device"}
+		for _, lk := range p.config.StaticLabels {
+			labelKeys = append(labelKeys, lk.Key)
+		}
 		labelKeys = append(labelKeys, getLabelKeys(m)...)
 		p.descriptors[fqName] = prometheus.NewDesc(fqName, commons.Help, labelKeys, nil)
 	}
