@@ -10,6 +10,7 @@ global:
   static_labels:                      # User defined labels/values to be added to all metrics. Can be null.
     label1: value1
     label2: value2
+    # etc...
 
 # These keys are shared among all device configurations and are overridden by the device section keys.
 device_template:
