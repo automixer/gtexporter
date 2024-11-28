@@ -186,6 +186,10 @@ func (f *ocIfFormatter) ifCounters() []exporter.GMetric {
 			metric.IfType = iface.GetType().ShortString()
 			metric.LagType = lagType
 			metric.Description = iface.GetDescription()
+			if metric.Description == "" && kind == kindIfaceLagMember {
+				// Copy the parent's description
+				metric.Description = f.root.Interface[alias].GetDescription()
+			}
 			// Values
 			metric.Metric = counterName
 			metric.Value = counterValue
@@ -238,6 +242,10 @@ func (f *ocIfFormatter) ifGauges() []exporter.GMetric {
 			metric.IfType = iface.GetType().ShortString()
 			metric.LagType = lagType
 			metric.Description = iface.GetDescription()
+			if metric.Description == "" && kind == kindIfaceLagMember {
+				// Copy the parent's description
+				metric.Description = f.root.Interface[alias].GetDescription()
+			}
 			// Values
 			metric.Metric = gaugeName
 			metric.Value = gaugeValue
