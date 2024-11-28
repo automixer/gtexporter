@@ -295,7 +295,7 @@ func (f *ocIfFormatter) subIfCounters() []exporter.GMetric {
 				metric.Description = subIface.GetDescription()
 				if metric.Description == "" && kind == kindSubIfaceLagMember {
 					// Copy the parent's description
-					metric.Description = f.root.Interface[alias].GetDescription()
+					metric.Description = f.root.Interface[alias].Subinterface[index].GetDescription()
 				}
 				// Values
 				metric.Metric = counterName
@@ -352,7 +352,7 @@ func (f *ocIfFormatter) subIfGauges() []exporter.GMetric {
 				metric.Description = subIface.GetDescription()
 				if metric.Description == "" && kind == kindSubIfaceLagMember {
 					// Copy the parent's description
-					metric.Description = f.root.Interface[alias].GetDescription()
+					metric.Description = f.root.Interface[alias].Subinterface[index].GetDescription()
 				}
 				// Values
 				metric.Metric = gaugeName
