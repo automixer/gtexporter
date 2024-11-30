@@ -25,6 +25,8 @@ devices:
                                       # Only interface records satisfying this regexp are passed.
       index_filter: ".*"              # subInterface's index regexp filter.
                                       # Only subInterface records satisfying this regexp are passed.
+      fill_lag_member_desc: "false"   # If the LAG member description is empty, overwrite it with the parent's desc.
+                                      # Specific for Juniper devices. Could also work with other platforms.
 ---
 #==== oc_lldp specific ====
       disable_gnmi_delete: "true"     # Disables the processing of gNMI delete messages.
