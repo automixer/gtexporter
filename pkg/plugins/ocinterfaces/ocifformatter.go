@@ -32,13 +32,14 @@ func init() {
 }
 
 type ocIfFormatter struct {
-	config        plugins.Config
-	root          *ysocif.Root
-	lagTable      map[string]string // Key: ifName, Value: LAG name
-	lagSet        map[string]bool   // Key: lagName
-	disableInt    bool
-	disableAgg    bool
-	disableSubInt bool
+	config            plugins.Config
+	root              *ysocif.Root
+	lagTable          map[string]string // Key: ifName, Value: LAG name
+	lagSet            map[string]bool   // Key: lagName
+	disableInt        bool
+	disableAgg        bool
+	disableSubInt     bool
+	fillLagMemberDesc bool
 }
 
 func newFormatter(cfg plugins.Config) (plugins.Formatter, error) {
@@ -47,6 +48,7 @@ func newFormatter(cfg plugins.Config) (plugins.Formatter, error) {
 	f.disableInt, _ = strconv.ParseBool(f.config.Options["disable_int"])
 	f.disableAgg, _ = strconv.ParseBool(f.config.Options["disable_agg"])
 	f.disableSubInt, _ = strconv.ParseBool(f.config.Options["disable_subint"])
+	f.fillLagMemberDesc, _ = strconv.ParseBool(f.config.Options["fill_lag_member_desc"])
 	return f, nil
 }
 
@@ -186,6 +188,10 @@ func (f *ocIfFormatter) ifCounters() []exporter.GMetric {
 			metric.IfType = iface.GetType().ShortString()
 			metric.LagType = lagType
 			metric.Description = iface.GetDescription()
+			if f.fillLagMemberDesc && metric.Description == "" && kind == kindIfaceLagMember {
+				// Copy the parent's description
+				metric.Description = f.root.Interface[alias].GetDescription()
+			}
 			// Values
 			metric.Metric = counterName
 			metric.Value = counterValue
@@ -238,6 +244,10 @@ func (f *ocIfFormatter) ifGauges() []exporter.GMetric {
 			metric.IfType = iface.GetType().ShortString()
 			metric.LagType = lagType
 			metric.Description = iface.GetDescription()
+			if f.fillLagMemberDesc && metric.Description == "" && kind == kindIfaceLagMember {
+				// Copy the parent's description
+				metric.Description = f.root.Interface[alias].GetDescription()
+			}
 			// Values
 			metric.Metric = gaugeName
 			metric.Value = gaugeValue
@@ -293,6 +303,10 @@ func (f *ocIfFormatter) subIfCounters() []exporter.GMetric {
 				metric.OperStatus = subIface.GetOperStatus().ShortString()
 				metric.LagType = lagType
 				metric.Description = subIface.GetDescription()
+				if f.fillLagMemberDesc && metric.Description == "" && kind == kindSubIfaceLagMember {
+					// Copy the parent's description
+					metric.Description = f.root.Interface[alias].Subinterface[index].GetDescription()
+				}
 				// Values
 				metric.Metric = counterName
 				metric.Value = counterValue
@@ -346,6 +360,10 @@ func (f *ocIfFormatter) subIfGauges() []exporter.GMetric {
 				metric.OperStatus = subIface.GetOperStatus().ShortString()
 				metric.LagType = lagType
 				metric.Description = subIface.GetDescription()
+				if f.fillLagMemberDesc && metric.Description == "" && kind == kindSubIfaceLagMember {
+					// Copy the parent's description
+					metric.Description = f.root.Interface[alias].Subinterface[index].GetDescription()
+				}
 				// Values
 				metric.Metric = gaugeName
 				metric.Value = gaugeValue

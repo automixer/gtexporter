@@ -3,7 +3,7 @@ module github.com/automixer/gtexporter
 go 1.23.2
 
 require (
-	github.com/golang/glog v1.2.2
+	github.com/golang/glog v1.2.3
 	github.com/openconfig/gnmi v0.11.0
 	github.com/openconfig/ygot v0.29.20
 	github.com/prometheus/client_golang v1.20.5
