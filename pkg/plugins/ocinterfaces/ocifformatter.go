@@ -171,7 +171,7 @@ func (f *ocIfFormatter) ifCounters() []exporter.GMetric {
 			pullMode = ysocif.UseGoDefault
 		}
 		if f.lagSet[name] {
-			pullMode = ysocif.ForceToZero
+			pullMode = ysocif.ForceToZeroIfNil
 		}
 
 		// Get counters
@@ -284,7 +284,7 @@ func (f *ocIfFormatter) subIfCounters() []exporter.GMetric {
 			pullMode = ysocif.UseGoDefault
 		}
 		if f.lagSet[name] {
-			pullMode = ysocif.ForceToZero
+			pullMode = ysocif.ForceToZeroIfNil
 		}
 
 		// Walk subinterfaces
