@@ -4,9 +4,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	log "github.com/golang/glog"
 	"os"
 	"os/signal"
+
+	log "github.com/golang/glog"
 
 	// Local Packages
 	"github.com/automixer/gtexporter/pkg/core"
@@ -35,7 +36,7 @@ func main() {
 	log.Infof("Starting %s %s ...", appName, appVersion)
 	log.Infof("Build date : %s", buildDate)
 
-	// Check config file
+	// Check the config file
 	if *cfgFile == "" {
 		log.Errorf("Missing configuration argument. Exiting...")
 		os.Exit(1)
