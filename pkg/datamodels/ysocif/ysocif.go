@@ -61,7 +61,7 @@ type CntMode int
 const (
 	Normal CntMode = iota
 	UseGoDefault
-	ForceToZero
+	ForceToZeroIfNil
 )
 
 // GetCountersFromStruct extract a map of counters from a yang container of counters
@@ -87,10 +87,13 @@ func GetCountersFromStruct(s any, mode CntMode) map[string]float64 {
 			} else {
 				out[fieldName] = 0.0
 			}
-		case ForceToZero:
+		case ForceToZeroIfNil:
 			if strings.HasPrefix(fieldName, "in-") || strings.HasPrefix(fieldName, "out-") {
-				// Wipe counters only
-				out[fieldName] = 0.0
+				if valPtr != nil {
+					out[fieldName] = float64(*valPtr)
+				} else {
+					out[fieldName] = 0.0
+				}
 			} else {
 				// If not a counter, apply Normal policy
 				if valPtr != nil {
