@@ -73,7 +73,7 @@ type GnmiClient struct {
 func New(cfg Config) (*GnmiClient, error) {
 	gClient := &GnmiClient{config: cfg}
 	gClient.xPathList = make(map[string][]string)
-	if err := gClient.clientMon.configure(cfg.DevName); err != nil {
+	if err := gClient.configure(cfg.DevName); err != nil {
 		return nil, err
 	}
 	return gClient, nil

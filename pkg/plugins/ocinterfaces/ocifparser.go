@@ -40,7 +40,7 @@ func newParser(cfg plugins.Config) (plugins.Parser, error) {
 	p.disableDeletes, _ = strconv.ParseBool(cfg.Options["disable_gnmi_delete"])
 
 	// Load parser self-monitoring
-	if err := p.ParserMon.Configure(cfg); err != nil {
+	if err := p.Configure(cfg); err != nil {
 		return nil, err
 	}
 
