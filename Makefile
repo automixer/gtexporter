@@ -1,7 +1,7 @@
 APP_NAME			:= gtexporter
 SRC_PATH			:= cmd/gtexporter/
 BUILD_DIR			:= build
-YGOT_GEN_VER		:= 'v0.33.0'
+YGOT_GEN_VER		:= 'v0.34.0'
 BUILD_DATE			:= $(shell date -u +%FT%TZ)
 GOOS				:= $(shell go env GOOS)
 GOARCH				:= $(shell go env GOARCH)
