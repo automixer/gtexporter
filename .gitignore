@@ -25,4 +25,5 @@ go.work
 /build/
 /local/
 .DS_Store
-.claude/
+# Added by code-review-graph
+.code-review-graph/
