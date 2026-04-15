@@ -3,15 +3,14 @@ package ocinterfaces
 import (
 	"errors"
 	"fmt"
-	"github.com/openconfig/gnmi/proto/gnmi"
-	"github.com/openconfig/ygot/ygot"
 	"regexp"
 	"strconv"
 	"strings"
 
-	// Local packages
 	"github.com/automixer/gtexporter/pkg/datamodels/ysocif"
 	"github.com/automixer/gtexporter/pkg/plugins"
+	"github.com/openconfig/gnmi/proto/gnmi"
+	"github.com/openconfig/ygot/ygot"
 )
 
 const yStructInitialSize = 128
@@ -45,7 +44,7 @@ func newParser(cfg plugins.Config) (plugins.Parser, error) {
 		return nil, err
 	}
 
-	// Initialise the GoStruct and enum mapper
+	// Initialize the GoStruct and enum mapper
 	p.yStruct = &ysocif.Root{
 		Interface: make(map[string]*ysocif.Interface, yStructInitialSize),
 	}
@@ -85,7 +84,7 @@ func newParser(cfg plugins.Config) (plugins.Parser, error) {
 // It implements the plugin's parser interface
 func (p *ocIfParser) CheckOut() ygot.GoStruct {
 	if p.yStruct == nil {
-		panic(fmt.Sprint("yGot structure not initialized"))
+		panic(fmt.Sprint("ygot structure not initialized"))
 	}
 	return p.yStruct
 }
@@ -94,7 +93,7 @@ func (p *ocIfParser) CheckOut() ygot.GoStruct {
 // It is called by the plugin each time a GNMI notification is received.
 func (p *ocIfParser) ParseNotification(nf *gnmi.Notification) {
 	if p.yStruct == nil {
-		panic(fmt.Sprint("yGot structure not initialized"))
+		panic(fmt.Sprint("ygot structure not initialized"))
 	}
 
 	// Process GNMI delete messages

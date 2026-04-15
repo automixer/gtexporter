@@ -1,14 +1,12 @@
 package oclldp
 
 import (
-	log "github.com/golang/glog"
-	"github.com/openconfig/ygot/ygot"
-	"github.com/prometheus/client_golang/prometheus"
-
-	// Local packages
 	"github.com/automixer/gtexporter/pkg/datamodels/ysoclldp"
 	"github.com/automixer/gtexporter/pkg/exporter"
 	"github.com/automixer/gtexporter/pkg/plugins"
+	log "github.com/golang/glog"
+	"github.com/openconfig/ygot/ygot"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (

@@ -2,6 +2,7 @@ package gnmiclient
 
 import (
 	"context"
+
 	"google.golang.org/grpc/credentials"
 )
 
@@ -13,7 +14,7 @@ type perRpcCreds struct {
 }
 
 // GetRequestMetadata implements the required credentials interface
-func (c *perRpcCreds) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
+func (c *perRpcCreds) GetRequestMetadata(_ context.Context, _ ...string) (map[string]string, error) {
 	return map[string]string{
 		"username": c.username,
 		"password": c.password,

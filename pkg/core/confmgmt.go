@@ -3,16 +3,15 @@ package core
 import (
 	"errors"
 	"fmt"
-	log "github.com/golang/glog"
-	"github.com/openconfig/gnmi/proto/gnmi"
 	"regexp"
 	"strconv"
 	"time"
 
-	// Local packages
 	"github.com/automixer/gtexporter/pkg/exporter"
 	"github.com/automixer/gtexporter/pkg/gnmiclient"
 	"github.com/automixer/gtexporter/pkg/plugins"
+	log "github.com/golang/glog"
+	"github.com/openconfig/gnmi/proto/gnmi"
 )
 
 const (

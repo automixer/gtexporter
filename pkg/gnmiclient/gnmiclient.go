@@ -5,13 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	log "github.com/golang/glog"
-	"github.com/openconfig/gnmi/proto/gnmi"
-	"github.com/openconfig/ygot/ygot"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/backoff"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 	"math"
 	"net"
 	"os"
@@ -19,6 +12,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	log "github.com/golang/glog"
+	"github.com/openconfig/gnmi/proto/gnmi"
+	"github.com/openconfig/ygot/ygot"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Constants
@@ -380,7 +381,7 @@ func (c *GnmiClient) removeDmPfxFromPath(nf *gnmi.Notification) {
 	}
 }
 
-// run is the main loop for gNMI worker thread. It establishes a connection to the target
+// run is the main loop for the gNMI worker thread. It establishes a connection to the target
 // device using the specified dial options, checks the device capabilities, subscribes to
 // gNMI telemetry, and continuously receives the gNMI stream. It runs until the context is
 // canceled or an error occurs.
@@ -395,7 +396,7 @@ func (c *GnmiClient) run(ctx context.Context) {
 	var maxLifeExpired bool
 	var sessionTimer *time.Timer
 
-	// Setup dial options
+	// Set up dial options
 	dialOpts, err = c.newDialOptions()
 	if err != nil {
 		log.Error(err)
@@ -403,7 +404,7 @@ func (c *GnmiClient) run(ctx context.Context) {
 		return
 	}
 
-	// Setup target ip address
+	// Set up target ip address
 	var targetDev string
 	if net.ParseIP(c.config.IPAddress) != nil {
 		targetDev = fmt.Sprintf("%s:%s", c.config.IPAddress, c.config.Port)

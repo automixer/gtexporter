@@ -2,14 +2,13 @@ package plugins
 
 import (
 	"fmt"
-	"github.com/openconfig/gnmi/proto/gnmi"
-	"github.com/openconfig/ygot/ygot"
-	"github.com/prometheus/client_golang/prometheus"
 	"sync"
 	"time"
 
-	// Local packages
 	"github.com/automixer/gtexporter/pkg/exporter"
+	"github.com/openconfig/gnmi/proto/gnmi"
+	"github.com/openconfig/ygot/ygot"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // FormatterPaths represents the paths to be subscribed by the client on behalf of the formatter needs.
@@ -87,7 +86,7 @@ func New(cfg Config) (*Plugin, error) {
 	// Prepare descriptors for registration
 	desc := formatter.Describe()                                                        // User metrics from formatter
 	desc = append(desc, newFormatterMetric(prometheus.GaugeValue, plug.config.DevName)) // Formatter self-monitoring
-	desc = append(desc, parser.Describe()...)                                           // Parser self monitoring
+	desc = append(desc, parser.Describe()...)                                           // Parser self-monitoring
 
 	// Register plugin to exporter
 	if err := exporter.Registry(plug, desc); err != nil {
@@ -137,7 +136,7 @@ func (p *Plugin) GetMetrics(ch chan<- exporter.GMetric) {
 		ch <- m
 	}
 
-	// Send formatter self monitoring data
+	// Send formatter self-monitoring data
 	fMon := newFormatterMetric(prometheus.GaugeValue, p.config.DevName)
 	fMon.Metric = "collected_series"
 	fMon.Value = float64(mCounter)

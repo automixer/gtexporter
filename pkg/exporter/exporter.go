@@ -3,11 +3,12 @@ package exporter
 import (
 	"context"
 	"errors"
+	"net/http"
+	"sync"
+
 	log "github.com/golang/glog"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"net/http"
-	"sync"
 )
 
 // Registry is a variable of type func(src GMetricSource, metrics []GMetric) error.

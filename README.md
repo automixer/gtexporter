@@ -27,7 +27,7 @@ and exposes them via its own [client](https://github.com/prometheus/client_golan
 Hence, the central component of the app is the **schema plugin**:
 - A **schema plugin** is responsible for subscribing and rendering a set of 
 [schema paths](https://openconfig.net/projects/models/paths/) from a selected YANG data model.
-- Internally, it is further divided into two components:
+- Internally, it is further divided into two parts:
   - The **Parser** decodes and loads the received gNMI notifications into the related **GoStruct** data structure.
   - The **Formatter** reads the **GoStruct** and builds up the metrics to be exported when Prometheus asks for them. 
 - The **GoStruct** is a "data container" that represents the structure of the selected YANG data model. 
@@ -58,7 +58,7 @@ The mandatory argument is a config file named ```config.yaml``` into the current
 
 ### The Configuration File
 This [configuration file template](config-keys.yaml) and this [addendum](plugin-options.yaml) 
-describes the supported configuration keys.  
+ describe the supported configuration keys.  
 The file is subdivided into three sections:
 1) The ```global``` section contains application-wide settings like the Prometheus client listen address and port.
 2) The ```device_template``` section contains the settings shared among all devices. This section can
@@ -130,7 +130,7 @@ client instances.
 running plugin's formatters.
 4) ```<configured_metric_prefix>_plugin_parser_total{}```: These counters describe the operational state of the 
 running plugin's parsers.
-5) The default Go Runtime Metrics exported by the Prometheus client library.
+5) The default Go Runtime Metrics are exported by the Prometheus client library.
 
 ## Caveats
 ### The ```global:scrape_interval``` setting
@@ -147,13 +147,13 @@ The default ```device:oversampling``` value is 2.
 ### Cache mode and max_life
 By default, **GtExporter** does not cache any data. The ```device:mode``` key can be used to force persistence of  
 the yGot GoStruct over time. This setting implies that the monitored device must implement the 
-gNMI delete messages mechanism, to avoid a continuously growing GoStruct.  
+gNMI delete messages mechanism to avoid a continuously growing GoStruct.  
 The ```device:max_life``` config sets a time limit on the gNMI subscription. When ```max_life``` expires, the
 session is torn down and re-established, forcing a cache flush event. This setting can be useful in keeping
 the GoStruct size under control.
 
 ### The ```device:desc_sanitize``` setting
-Descriptions are user defined strings contained into the device configuration. Since descriptions are often used as 
+Descriptions are user-defined strings contained into the device configuration. Since descriptions are often used as 
 Prometheus labels, not all characters are valid. The ```device:desc_sanitize``` config key is a regexp pattern
 used to remove unsupported characters by Prometheus.
 

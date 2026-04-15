@@ -1,12 +1,11 @@
 package gnmiclient
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"reflect"
 	"sync"
 
-	// Local packages
 	"github.com/automixer/gtexporter/pkg/exporter"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // cmCounters represents the counters of a client instance.
@@ -15,8 +14,8 @@ import (
 // - Updates: counter for the number of GNMI updates received
 // - Deletes: counter for the number of GNMI deletes received
 // - DialErrors: counter for the number of dial errors encountered
-// - CheckCapsErrors: counter for the number of capabilities check errors encountered
-// - SubscribeErrors: counter for the number of subscribe errors encountered
+// - CheckCapsErrors: counter for the number of capabilities-check errors encountered
+// - SubscribeErrors: counter for the number of subscription errors encountered
 // - Disconnections: counter for the number of disconnections
 // - SrRoutingErrors: counter for the number of Subscribe Response messages routing errors
 type cmCounters struct {
@@ -32,7 +31,7 @@ type cmCounters struct {
 
 // cmGauges represents the gauges of a client instance.
 // It includes the following fields:
-// - NfBufUsagePC: gauge for the percentage of fullness of notification buffer.
+// - NfBufUsagePC: gauge for the percentage of fullness of the notification buffer.
 type cmGauges struct {
 	NfBufUsagePC uint64 `label:"notification_buf_usage_pc"`
 }
