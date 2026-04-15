@@ -84,7 +84,7 @@ func newParser(cfg plugins.Config) (plugins.Parser, error) {
 // It implements the plugin's parser interface
 func (p *ocIfParser) CheckOut() ygot.GoStruct {
 	if p.yStruct == nil {
-		panic(fmt.Sprint("ygot structure not initialized"))
+		panic("ygot structure not initialized")
 	}
 	return p.yStruct
 }
@@ -93,7 +93,7 @@ func (p *ocIfParser) CheckOut() ygot.GoStruct {
 // It is called by the plugin each time a GNMI notification is received.
 func (p *ocIfParser) ParseNotification(nf *gnmi.Notification) {
 	if p.yStruct == nil {
-		panic(fmt.Sprint("ygot structure not initialized"))
+		panic("ygot structure not initialized")
 	}
 
 	// Process GNMI delete messages

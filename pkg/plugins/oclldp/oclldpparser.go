@@ -2,7 +2,6 @@ package oclldp
 
 import (
 	"errors"
-	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -58,7 +57,7 @@ func newParser(cfg plugins.Config) (plugins.Parser, error) {
 // CheckOut returns the yGot structure.
 func (p *ocLldpParser) CheckOut() ygot.GoStruct {
 	if p.yStruct == nil {
-		panic(fmt.Sprint("ygot structure not initialized"))
+		panic("ygot structure not initialized")
 	}
 	return p.yStruct
 }
@@ -131,7 +130,7 @@ func (p *ocLldpParser) getPathMeta(pfx, path *gnmi.Path) (*pathMetadata, error) 
 // ParseNotification analyzes a GNMI notification and calls the appropriate decoding method.
 func (p *ocLldpParser) ParseNotification(nf *gnmi.Notification) {
 	if p.yStruct == nil {
-		panic(fmt.Sprint("ygot structure not initialized"))
+		panic("ygot structure not initialized")
 	}
 
 	// Process GNMI delete messages

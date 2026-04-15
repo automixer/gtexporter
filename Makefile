@@ -30,6 +30,10 @@ vet: fmt
 	go vet ./...
 .PHONY: vet
 
+lint:
+	golangci-lint run ./...
+.PHONY: lint
+
 prepare:
 	mkdir -p $(BUILD_DIR)
 .PHONY: prepare
@@ -42,14 +46,14 @@ devel: prepare vet
 	go build -ldflags $(LDFLAGS) -o $(BIN_NAME) $(SRC_PATH)*.go
 .PHONY: build
 
-release: prepare vet
+release: prepare vet lint
 	$(eval LDFLAGS := '-X main.appName=$(APP_NAME) \
 	-X main.appVersion=$(shell git describe --abbrev --tags HEAD)-$(COMMIT_ID) \
 	-X main.buildDate=$(BUILD_DATE)')
 	go build -ldflags $(LDFLAGS) -o $(BIN_NAME)-$(GOOS)-$(GOARCH) $(SRC_PATH)*.go
 .PHONY: release
 
-docker_release: prepare vet
+docker_release: prepare vet lint
 	$(eval LDFLAGS := '-X main.appName=$(APP_NAME) \
 	-X main.appVersion=$(shell git describe --abbrev --tags HEAD)-$(COMMIT_ID) \
 	-X main.buildDate=$(BUILD_DATE)')

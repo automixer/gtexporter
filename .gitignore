@@ -25,3 +25,4 @@ go.work
 /build/
 /local/
 .DS_Store
+.claude/
