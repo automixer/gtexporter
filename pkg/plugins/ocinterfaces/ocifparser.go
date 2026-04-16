@@ -105,6 +105,16 @@ func (p *ocIfParser) ParseNotification(nf *gnmi.Notification) {
 
 	// Process GNMI update messages
 	for i, update := range nf.Update {
+		// Detect JSON container-level updates (e.g., JSON encoding)
+		jsonBytes := update.Val.GetJsonVal()
+		if len(jsonBytes) == 0 {
+			jsonBytes = update.Val.GetJsonIetfVal()
+		}
+		if len(jsonBytes) > 0 {
+			p.parseJsonUpdate(nf, i, jsonBytes)
+			continue
+		}
+		// Per-leaf scalar update (e.g., PROTO encoding)
 		updHandler := p.updHandlerLookup(nf.Prefix, update.Path)
 		if updHandler == nil {
 			continue
