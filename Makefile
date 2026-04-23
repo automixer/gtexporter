@@ -46,14 +46,14 @@ devel: prepare vet
 	go build -ldflags $(LDFLAGS) -o $(BIN_NAME) $(SRC_PATH)*.go
 .PHONY: build
 
-release: prepare vet lint
+release: prepare vet
 	$(eval LDFLAGS := '-X main.appName=$(APP_NAME) \
 	-X main.appVersion=$(shell git describe --abbrev --tags HEAD)-$(COMMIT_ID) \
 	-X main.buildDate=$(BUILD_DATE)')
 	go build -ldflags $(LDFLAGS) -o $(BIN_NAME)-$(GOOS)-$(GOARCH) $(SRC_PATH)*.go
 .PHONY: release
 
-docker_release: prepare vet lint
+docker_release: prepare vet
 	$(eval LDFLAGS := '-X main.appName=$(APP_NAME) \
 	-X main.appVersion=$(shell git describe --abbrev --tags HEAD)-$(COMMIT_ID) \
 	-X main.buildDate=$(BUILD_DATE)')
