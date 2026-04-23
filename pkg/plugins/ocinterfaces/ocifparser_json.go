@@ -8,8 +8,8 @@ import (
 	"strings"
 
 	"github.com/automixer/gtexporter/pkg/datamodels/ysocif"
+	"github.com/automixer/gtexporter/pkg/plugins"
 	"github.com/openconfig/gnmi/proto/gnmi"
-	"github.com/openconfig/ygot/ygot"
 )
 
 // parseJsonUpdate decodes a JSON container-level update and routes it to the appropriate handler.
@@ -17,23 +17,17 @@ import (
 // update carries a whole container as a JSON blob rather than individual leaf values.
 func (p *ocIfParser) parseJsonUpdate(nf *gnmi.Notification, updNum int, jsonBytes []byte) {
 	// Compute schema path for container-level routing
-	sPfx, _ := ygot.PathToSchemaPath(nf.Prefix)
-	sPath, _ := ygot.PathToSchemaPath(nf.Update[updNum].Path)
-	var fullPath string
-	if len(sPfx) > 1 {
-		fullPath += sPfx
-	}
-	fullPath += sPath
+	fullPath := plugins.BuildSchemaPath(nf.GetPrefix(), nf.GetUpdate()[updNum].GetPath())
 
 	// Extract interface/subinterface metadata from path keys
-	pathMeta, err := p.getPathMeta(nf.Prefix, nf.Update[updNum].Path)
+	pathMeta, err := p.getPathMeta(nf.GetPrefix(), nf.GetUpdate()[updNum].GetPath())
 	if err != nil {
 		p.InvalidPath()
 		return
 	}
 
 	// Decode the JSON blob; UseNumber preserves large integers as strings
-	var data map[string]interface{}
+	var data map[string]any
 	dec := json.NewDecoder(bytes.NewReader(jsonBytes))
 	dec.UseNumber()
 	if err := dec.Decode(&data); err != nil {
@@ -55,17 +49,13 @@ func (p *ocIfParser) parseJsonUpdate(nf *gnmi.Notification, updNum int, jsonByte
 
 // ifStateJson fills /interface/state GoStruct fields from a JSON map.
 // Cisco IOS XE sends the state fields and the nested counters together in one update.
-func (p *ocIfParser) ifStateJson(meta *pathMetadata, data map[string]interface{}) {
+func (p *ocIfParser) ifStateJson(meta *pathMetadata, data map[string]any) {
 	if !p.rxName.MatchString(meta.ifName) {
 		return
 	}
 
-	if _, ok := p.yStruct.Interface[meta.ifName]; !ok {
-		newIf, err := p.yStruct.NewInterface(meta.ifName)
-		if err != nil {
-			return
-		}
-		newIf.PopulateDefaults()
+	if !p.ensureInterface(meta.ifName) {
+		return
 	}
 	target := p.yStruct.Interface[meta.ifName]
 
@@ -81,38 +71,61 @@ func (p *ocIfParser) ifStateJson(meta *pathMetadata, data map[string]interface{}
 				target.AdminStatus = ysocif.E_Interface_AdminStatus(
 					p.eMapper.GetEnumFromString(s, target.AdminStatus))
 			}
+		case "cpu":
+			if b, ok := val.(bool); ok {
+				target.Cpu = new(b)
+			}
 		case "description":
 			if s, ok := val.(string); ok {
-				target.Description = ygot.String(p.sanitizeDescription(s))
+				target.Description = new(p.sanitizeDescription(s))
 			}
 		case "enabled":
 			if b, ok := val.(bool); ok {
-				target.Enabled = ygot.Bool(b)
+				target.Enabled = new(b)
 			}
 		case "ifindex":
 			if u := jsonUint64(val); u != nil {
-				target.Ifindex = ygot.Uint32(uint32(*u))
+				target.Ifindex = new(uint32(*u))
 			}
 		case "last-change":
 			if u := jsonUint64(val); u != nil {
-				target.LastChange = ygot.Uint64(*u)
+				target.LastChange = new(*u)
+			}
+		case "logical":
+			if b, ok := val.(bool); ok {
+				target.Logical = new(b)
+			}
+		case "loopback-mode":
+			if s, ok := val.(string); ok {
+				target.LoopbackMode = ysocif.E_OpenconfigInterfaces_LoopbackModeType(
+					p.eMapper.GetEnumFromString(s, target.LoopbackMode))
+			}
+		case "management":
+			if b, ok := val.(bool); ok {
+				target.Management = new(b)
+			}
+		case "mtu":
+			if u := jsonUint64(val); u != nil {
+				target.Mtu = new(uint16(*u))
 			}
 		case "name":
 			if s, ok := val.(string); ok {
-				target.Name = ygot.String(s)
+				target.Name = new(s)
 			}
 		case "oper-status":
 			if s, ok := val.(string); ok {
 				target.OperStatus = ysocif.E_Interface_OperStatus(
 					p.eMapper.GetEnumFromString(s, target.OperStatus))
 			}
+		case "tpid":
+			// tpid isn't handled but present to avoid false ContainerNotFound() counting
 		case "type":
 			if s, ok := val.(string); ok {
 				target.Type = ysocif.E_IETFInterfaces_InterfaceType(
 					p.eMapper.GetEnumFromString(s, target.Type))
 			}
 		case "counters":
-			if cMap, ok := val.(map[string]interface{}); ok {
+			if cMap, ok := val.(map[string]any); ok {
 				p.fillIfCountersJson(target.Counters, cMap)
 			}
 		}
@@ -120,7 +133,7 @@ func (p *ocIfParser) ifStateJson(meta *pathMetadata, data map[string]interface{}
 }
 
 // fillIfCountersJson fills /interface/state/counters GoStruct fields from a JSON map.
-func (p *ocIfParser) fillIfCountersJson(target *ysocif.Interface_Counters, data map[string]interface{}) {
+func (p *ocIfParser) fillIfCountersJson(target *ysocif.Interface_Counters, data map[string]any) {
 	for key, val := range data {
 		u := jsonUint64(val)
 		if u == nil {
@@ -128,67 +141,55 @@ func (p *ocIfParser) fillIfCountersJson(target *ysocif.Interface_Counters, data 
 		}
 		switch key {
 		case "carrier-transitions":
-			target.CarrierTransitions = ygot.Uint64(*u)
+			target.CarrierTransitions = new(*u)
 		case "in-broadcast-pkts":
-			target.InBroadcastPkts = ygot.Uint64(*u)
+			target.InBroadcastPkts = new(*u)
 		case "in-discards":
-			target.InDiscards = ygot.Uint64(*u)
+			target.InDiscards = new(*u)
 		case "in-errors":
-			target.InErrors = ygot.Uint64(*u)
+			target.InErrors = new(*u)
 		case "in-fcs-errors":
-			target.InFcsErrors = ygot.Uint64(*u)
+			target.InFcsErrors = new(*u)
 		case "in-multicast-pkts":
-			target.InMulticastPkts = ygot.Uint64(*u)
+			target.InMulticastPkts = new(*u)
 		case "in-octets":
-			target.InOctets = ygot.Uint64(*u)
+			target.InOctets = new(*u)
 		case "in-pkts":
-			target.InPkts = ygot.Uint64(*u)
+			target.InPkts = new(*u)
 		case "in-unicast-pkts":
-			target.InUnicastPkts = ygot.Uint64(*u)
+			target.InUnicastPkts = new(*u)
 		case "in-unknown-protos":
-			target.InUnknownProtos = ygot.Uint64(*u)
+			target.InUnknownProtos = new(*u)
 		case "last-clear":
-			target.LastClear = ygot.Uint64(*u)
+			target.LastClear = new(*u)
 		case "out-broadcast-pkts":
-			target.OutBroadcastPkts = ygot.Uint64(*u)
+			target.OutBroadcastPkts = new(*u)
 		case "out-discards":
-			target.OutDiscards = ygot.Uint64(*u)
+			target.OutDiscards = new(*u)
 		case "out-errors":
-			target.OutErrors = ygot.Uint64(*u)
+			target.OutErrors = new(*u)
 		case "out-multicast-pkts":
-			target.OutMulticastPkts = ygot.Uint64(*u)
+			target.OutMulticastPkts = new(*u)
 		case "out-octets":
-			target.OutOctets = ygot.Uint64(*u)
+			target.OutOctets = new(*u)
 		case "out-pkts":
-			target.OutPkts = ygot.Uint64(*u)
+			target.OutPkts = new(*u)
 		case "out-unicast-pkts":
-			target.OutUnicastPkts = ygot.Uint64(*u)
+			target.OutUnicastPkts = new(*u)
 		case "resets":
-			target.Resets = ygot.Uint64(*u)
+			target.Resets = new(*u)
 		}
 	}
 }
 
 // subIfStateJson fills /interface/subinterfaces/subinterface/state GoStruct fields from a JSON map.
-func (p *ocIfParser) subIfStateJson(meta *pathMetadata, data map[string]interface{}) {
+func (p *ocIfParser) subIfStateJson(meta *pathMetadata, data map[string]any) {
 	if !p.rxName.MatchString(meta.ifName) || !p.rxIndex.MatchString(fmt.Sprint(meta.ifIndex)) {
 		return
 	}
 
-	if _, ok := p.yStruct.Interface[meta.ifName]; !ok {
-		newIf, err := p.yStruct.NewInterface(meta.ifName)
-		if err != nil {
-			return
-		}
-		newIf.PopulateDefaults()
-	}
-
-	if _, ok := p.yStruct.Interface[meta.ifName].Subinterface[meta.ifIndex]; !ok {
-		newSubIf, err := p.yStruct.Interface[meta.ifName].NewSubinterface(meta.ifIndex)
-		if err != nil {
-			return
-		}
-		newSubIf.PopulateDefaults()
+	if !p.ensureInterface(meta.ifName) || !p.ensureSubinterface(meta.ifName, meta.ifIndex) {
+		return
 	}
 	target := p.yStruct.Interface[meta.ifName].Subinterface[meta.ifIndex]
 
@@ -202,29 +203,41 @@ func (p *ocIfParser) subIfStateJson(meta *pathMetadata, data map[string]interfac
 				target.AdminStatus = ysocif.E_Interface_AdminStatus(
 					p.eMapper.GetEnumFromString(s, target.AdminStatus))
 			}
+		case "cpu":
+			if b, ok := val.(bool); ok {
+				target.Cpu = new(b)
+			}
 		case "description":
 			if s, ok := val.(string); ok {
-				target.Description = ygot.String(p.sanitizeDescription(s))
+				target.Description = new(p.sanitizeDescription(s))
 			}
 		case "enabled":
 			if b, ok := val.(bool); ok {
-				target.Enabled = ygot.Bool(b)
+				target.Enabled = new(b)
 			}
 		case "ifindex":
 			if u := jsonUint64(val); u != nil {
-				target.Ifindex = ygot.Uint32(uint32(*u))
+				target.Ifindex = new(uint32(*u))
 			}
 		case "index":
 			if u := jsonUint64(val); u != nil {
-				target.Index = ygot.Uint32(uint32(*u))
+				target.Index = new(uint32(*u))
 			}
 		case "last-change":
 			if u := jsonUint64(val); u != nil {
-				target.LastChange = ygot.Uint64(*u)
+				target.LastChange = new(*u)
+			}
+		case "logical":
+			if b, ok := val.(bool); ok {
+				target.Logical = new(b)
+			}
+		case "management":
+			if b, ok := val.(bool); ok {
+				target.Management = new(b)
 			}
 		case "name":
 			if s, ok := val.(string); ok {
-				target.Name = ygot.String(s)
+				target.Name = new(s)
 			}
 		case "oper-status":
 			if s, ok := val.(string); ok {
@@ -232,7 +245,7 @@ func (p *ocIfParser) subIfStateJson(meta *pathMetadata, data map[string]interfac
 					p.eMapper.GetEnumFromString(s, target.OperStatus))
 			}
 		case "counters":
-			if cMap, ok := val.(map[string]interface{}); ok {
+			if cMap, ok := val.(map[string]any); ok {
 				p.fillSubIfCountersJson(target.Counters, cMap)
 			}
 		}
@@ -240,7 +253,7 @@ func (p *ocIfParser) subIfStateJson(meta *pathMetadata, data map[string]interfac
 }
 
 // fillSubIfCountersJson fills /interface/subinterfaces/subinterface/state/counters fields from a JSON map.
-func (p *ocIfParser) fillSubIfCountersJson(target *ysocif.Interface_Subinterface_Counters, data map[string]interface{}) {
+func (p *ocIfParser) fillSubIfCountersJson(target *ysocif.Interface_Subinterface_Counters, data map[string]any) {
 	for key, val := range data {
 		u := jsonUint64(val)
 		if u == nil {
@@ -248,57 +261,53 @@ func (p *ocIfParser) fillSubIfCountersJson(target *ysocif.Interface_Subinterface
 		}
 		switch key {
 		case "carrier-transitions":
-			target.CarrierTransitions = ygot.Uint64(*u)
+			target.CarrierTransitions = new(*u)
 		case "in-broadcast-pkts":
-			target.InBroadcastPkts = ygot.Uint64(*u)
+			target.InBroadcastPkts = new(*u)
 		case "in-discards":
-			target.InDiscards = ygot.Uint64(*u)
+			target.InDiscards = new(*u)
 		case "in-errors":
-			target.InErrors = ygot.Uint64(*u)
+			target.InErrors = new(*u)
 		case "in-fcs-errors":
-			target.InFcsErrors = ygot.Uint64(*u)
+			target.InFcsErrors = new(*u)
 		case "in-multicast-pkts":
-			target.InMulticastPkts = ygot.Uint64(*u)
+			target.InMulticastPkts = new(*u)
 		case "in-octets":
-			target.InOctets = ygot.Uint64(*u)
+			target.InOctets = new(*u)
 		case "in-pkts":
-			target.InPkts = ygot.Uint64(*u)
+			target.InPkts = new(*u)
 		case "in-unicast-pkts":
-			target.InUnicastPkts = ygot.Uint64(*u)
+			target.InUnicastPkts = new(*u)
 		case "in-unknown-protos":
-			target.InUnknownProtos = ygot.Uint64(*u)
+			target.InUnknownProtos = new(*u)
 		case "last-clear":
-			target.LastClear = ygot.Uint64(*u)
+			target.LastClear = new(*u)
 		case "out-broadcast-pkts":
-			target.OutBroadcastPkts = ygot.Uint64(*u)
+			target.OutBroadcastPkts = new(*u)
 		case "out-discards":
-			target.OutDiscards = ygot.Uint64(*u)
+			target.OutDiscards = new(*u)
 		case "out-errors":
-			target.OutErrors = ygot.Uint64(*u)
+			target.OutErrors = new(*u)
 		case "out-multicast-pkts":
-			target.OutMulticastPkts = ygot.Uint64(*u)
+			target.OutMulticastPkts = new(*u)
 		case "out-octets":
-			target.OutOctets = ygot.Uint64(*u)
+			target.OutOctets = new(*u)
 		case "out-pkts":
-			target.OutPkts = ygot.Uint64(*u)
+			target.OutPkts = new(*u)
 		case "out-unicast-pkts":
-			target.OutUnicastPkts = ygot.Uint64(*u)
+			target.OutUnicastPkts = new(*u)
 		}
 	}
 }
 
 // ifAggStateJson fills /interface/aggregation/state GoStruct fields from a JSON map.
-func (p *ocIfParser) ifAggStateJson(meta *pathMetadata, data map[string]interface{}) {
+func (p *ocIfParser) ifAggStateJson(meta *pathMetadata, data map[string]any) {
 	if !p.rxName.MatchString(meta.ifName) {
 		return
 	}
 
-	if _, ok := p.yStruct.Interface[meta.ifName]; !ok {
-		newIf, err := p.yStruct.NewInterface(meta.ifName)
-		if err != nil {
-			return
-		}
-		newIf.PopulateDefaults()
+	if !p.ensureInterface(meta.ifName) {
+		return
 	}
 	target := p.yStruct.Interface[meta.ifName].Aggregation
 
@@ -306,7 +315,7 @@ func (p *ocIfParser) ifAggStateJson(meta *pathMetadata, data map[string]interfac
 		switch key {
 		case "lag-speed":
 			if u := jsonUint64(val); u != nil {
-				target.LagSpeed = ygot.Uint32(uint32(*u))
+				target.LagSpeed = new(uint32(*u))
 			}
 		case "lag-type":
 			if s, ok := val.(string); ok {
@@ -318,7 +327,7 @@ func (p *ocIfParser) ifAggStateJson(meta *pathMetadata, data map[string]interfac
 			switch v := val.(type) {
 			case string:
 				target.Member = append(target.Member, v)
-			case []interface{}:
+			case []any:
 				for _, m := range v {
 					if s, ok := m.(string); ok {
 						target.Member = append(target.Member, s)
@@ -327,7 +336,7 @@ func (p *ocIfParser) ifAggStateJson(meta *pathMetadata, data map[string]interfac
 			}
 		case "min-links":
 			if u := jsonUint64(val); u != nil {
-				target.MinLinks = ygot.Uint16(uint16(*u))
+				target.MinLinks = new(uint16(*u))
 			}
 		}
 	}
@@ -337,7 +346,7 @@ func (p *ocIfParser) ifAggStateJson(meta *pathMetadata, data map[string]interfac
 // With json.Decoder.UseNumber(), JSON integers decode as json.Number.
 // Cisco IOS XE also encodes large uint64 values as quoted JSON strings to
 // avoid JavaScript 64-bit precision loss.
-func jsonUint64(v interface{}) *uint64 {
+func jsonUint64(v any) *uint64 {
 	var s string
 	switch val := v.(type) {
 	case json.Number:
