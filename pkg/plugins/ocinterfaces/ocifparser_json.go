@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/automixer/gtexporter/pkg/datamodels/ysocif"
@@ -84,11 +83,11 @@ func (p *ocIfParser) ifStateJson(meta *pathMetadata, data map[string]any) {
 				target.Enabled = new(b)
 			}
 		case "ifindex":
-			if u := jsonUint64(val); u != nil {
+			if u := plugins.JsonUint64(val); u != nil {
 				target.Ifindex = new(uint32(*u))
 			}
 		case "last-change":
-			if u := jsonUint64(val); u != nil {
+			if u := plugins.JsonUint64(val); u != nil {
 				target.LastChange = new(*u)
 			}
 		case "logical":
@@ -105,7 +104,7 @@ func (p *ocIfParser) ifStateJson(meta *pathMetadata, data map[string]any) {
 				target.Management = new(b)
 			}
 		case "mtu":
-			if u := jsonUint64(val); u != nil {
+			if u := plugins.JsonUint64(val); u != nil {
 				target.Mtu = new(uint16(*u))
 			}
 		case "name":
@@ -135,7 +134,7 @@ func (p *ocIfParser) ifStateJson(meta *pathMetadata, data map[string]any) {
 // fillIfCountersJson fills /interface/state/counters GoStruct fields from a JSON map.
 func (p *ocIfParser) fillIfCountersJson(target *ysocif.Interface_Counters, data map[string]any) {
 	for key, val := range data {
-		u := jsonUint64(val)
+		u := plugins.JsonUint64(val)
 		if u == nil {
 			continue
 		}
@@ -216,15 +215,15 @@ func (p *ocIfParser) subIfStateJson(meta *pathMetadata, data map[string]any) {
 				target.Enabled = new(b)
 			}
 		case "ifindex":
-			if u := jsonUint64(val); u != nil {
+			if u := plugins.JsonUint64(val); u != nil {
 				target.Ifindex = new(uint32(*u))
 			}
 		case "index":
-			if u := jsonUint64(val); u != nil {
+			if u := plugins.JsonUint64(val); u != nil {
 				target.Index = new(uint32(*u))
 			}
 		case "last-change":
-			if u := jsonUint64(val); u != nil {
+			if u := plugins.JsonUint64(val); u != nil {
 				target.LastChange = new(*u)
 			}
 		case "logical":
@@ -255,7 +254,7 @@ func (p *ocIfParser) subIfStateJson(meta *pathMetadata, data map[string]any) {
 // fillSubIfCountersJson fills /interface/subinterfaces/subinterface/state/counters fields from a JSON map.
 func (p *ocIfParser) fillSubIfCountersJson(target *ysocif.Interface_Subinterface_Counters, data map[string]any) {
 	for key, val := range data {
-		u := jsonUint64(val)
+		u := plugins.JsonUint64(val)
 		if u == nil {
 			continue
 		}
@@ -314,7 +313,7 @@ func (p *ocIfParser) ifAggStateJson(meta *pathMetadata, data map[string]any) {
 	for key, val := range data {
 		switch key {
 		case "lag-speed":
-			if u := jsonUint64(val); u != nil {
+			if u := plugins.JsonUint64(val); u != nil {
 				target.LagSpeed = new(uint32(*u))
 			}
 		case "lag-type":
@@ -335,30 +334,9 @@ func (p *ocIfParser) ifAggStateJson(meta *pathMetadata, data map[string]any) {
 				}
 			}
 		case "min-links":
-			if u := jsonUint64(val); u != nil {
+			if u := plugins.JsonUint64(val); u != nil {
 				target.MinLinks = new(uint16(*u))
 			}
 		}
 	}
-}
-
-// jsonUint64 converts a JSON-decoded value to *uint64.
-// With json.Decoder.UseNumber(), JSON integers decode as json.Number.
-// Cisco IOS XE also encodes large uint64 values as quoted JSON strings to
-// avoid JavaScript 64-bit precision loss.
-func jsonUint64(v any) *uint64 {
-	var s string
-	switch val := v.(type) {
-	case json.Number:
-		s = val.String()
-	case string:
-		s = val
-	default:
-		return nil
-	}
-	n, err := strconv.ParseUint(s, 10, 64)
-	if err != nil {
-		return nil
-	}
-	return &n
 }
