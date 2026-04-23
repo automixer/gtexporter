@@ -74,6 +74,12 @@ func (c *GnmiClient) newSubList() []*gnmi.SubscriptionList {
 		}
 	}
 
+	// Cisco IOS XE 17.9.5 rejects UpdatesOnly=true; force it off regardless of config.
+	updatesOnly := c.config.GnmiUpdatesOnly
+	if c.config.Vendor == "cisco-iosxe" {
+		updatesOnly = false
+	}
+
 	// One subscription list per device
 	subLists = append(subLists, &gnmi.SubscriptionList{
 		Prefix:           nil,
@@ -83,7 +89,7 @@ func (c *GnmiClient) newSubList() []*gnmi.SubscriptionList {
 		AllowAggregation: false,
 		UseModels:        nil,
 		Encoding:         c.encoding,
-		UpdatesOnly:      c.config.GnmiUpdatesOnly,
+		UpdatesOnly:      updatesOnly,
 	})
 
 	return subLists
