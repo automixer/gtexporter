@@ -10,11 +10,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        id: setup-go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: './go.mod'
+
+      - name: Run Lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          skip-cache: true
 
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             ${{ github.repository }}
@@ -25,32 +37,20 @@ jobs:
           labels: |
             org.opencontainers.image.ref.name=${{ github.repository }}
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Derive Go version from go.mod
-        run: |
-          if grep -qE '^toolchain[[:space:]]+go[0-9]+\.[0-9]+(\.[0-9]+)?' go.mod; then
-            # Extract "go1.24.2" -> "1.24.2"
-            VER=$(awk '/^toolchain[[:space:]]+go/{print $2}' go.mod)
-            echo "GO_VERSION=${VER#go}" >> "$GITHUB_ENV"
-          else
-            # Extract "go 1.24.2" or "go 1.24"
-            echo "GO_VERSION=$(awk '/^go[[:space:]]+/{print $2}' go.mod)" >> "$GITHUB_ENV"
-          fi
-          echo "Using Go version: $GO_VERSION"
-
       - name: Login to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
       - name: Build and push
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
@@ -59,7 +59,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             MODE=docker_release
-            GO_VERSION=${{ env.GO_VERSION }}
+            GO_VERSION=${{ steps.setup-go.outputs.go-version }}
 
   gh_release:
     runs-on: ubuntu-latest
@@ -68,10 +68,10 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Go 1.x
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version-file: './go.mod'
 
@@ -83,6 +83,6 @@ jobs:
           GOOS=darwin GOARCH=arm64 make release
 
       - name: Create Release and Upload Assets
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v3
         with:
           files: ./build/*
