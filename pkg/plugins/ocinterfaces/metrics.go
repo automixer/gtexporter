@@ -1,10 +1,8 @@
 package ocinterfaces
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-
-	// Local packages
 	"github.com/automixer/gtexporter/pkg/exporter"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // ifKind is a custom type representing different kinds of interfaces.

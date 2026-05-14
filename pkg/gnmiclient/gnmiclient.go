@@ -5,13 +5,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	log "github.com/golang/glog"
-	"github.com/openconfig/gnmi/proto/gnmi"
-	"github.com/openconfig/ygot/ygot"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/backoff"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 	"math"
 	"net"
 	"os"
@@ -19,6 +12,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	log "github.com/golang/glog"
+	"github.com/openconfig/gnmi/proto/gnmi"
+	"github.com/openconfig/ygot/ygot"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/backoff"
+	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // Constants
@@ -72,7 +73,7 @@ type GnmiClient struct {
 func New(cfg Config) (*GnmiClient, error) {
 	gClient := &GnmiClient{config: cfg}
 	gClient.xPathList = make(map[string][]string)
-	if err := gClient.clientMon.configure(cfg.DevName); err != nil {
+	if err := gClient.configure(cfg.DevName); err != nil {
 		return nil, err
 	}
 	return gClient, nil
@@ -210,8 +211,8 @@ func (c *GnmiClient) checkCapabilities(ctx context.Context, stub gnmi.GNMIClient
 	}
 
 	// Check for yang datamodels support
-	supportedModels := make(map[string]*gnmi.ModelData, len(caps.SupportedModels))
-	for _, model := range caps.SupportedModels {
+	supportedModels := make(map[string]*gnmi.ModelData, len(caps.GetSupportedModels()))
+	for _, model := range caps.GetSupportedModels() {
 		supportedModels[model.Name] = model
 	}
 	for _, plug := range c.plugins {
@@ -240,7 +241,7 @@ func (c *GnmiClient) checkCapabilities(ctx context.Context, stub gnmi.GNMIClient
 		case "JSON_IETF":
 			c.encoding = gnmi.Encoding_JSON_IETF
 		default:
-			return fmt.Errorf("the encoding %s is not supported by gNMI", c.config.ForceEncoding)
+			return fmt.Errorf("the encoding %s is not supported by gnmi", c.config.ForceEncoding)
 		}
 	}
 	return nil
@@ -299,12 +300,12 @@ func (c *GnmiClient) routeSr(sr *gnmi.SubscribeResponse) {
 			c.removeDmPfxFromPath(nf)
 		}
 		// Normal messages routing
-		if _, ok := c.plugins[nf.Prefix.Target]; !ok {
+		if _, ok := c.plugins[nf.GetPrefix().GetTarget()]; !ok {
 			// Unknown destination
 			c.incSrRoutingErrors()
 			return
 		}
-		c.plugins[nf.Prefix.Target].Notification(nf)
+		c.plugins[nf.GetPrefix().GetTarget()].Notification(nf)
 	} else {
 		// Huawei specific
 		if c.config.Vendor == "huawei" {
@@ -312,7 +313,7 @@ func (c *GnmiClient) routeSr(sr *gnmi.SubscribeResponse) {
 		}
 
 		// The device does not support gnmi targeting, or the subscription does not include a target
-		pfx, _ := ygot.PathToSchemaPath(nf.Prefix)
+		pfx, _ := ygot.PathToSchemaPath(nf.GetPrefix())
 		if len(pfx) < 2 {
 			// Empty prefix
 			pfx = ""
@@ -320,7 +321,7 @@ func (c *GnmiClient) routeSr(sr *gnmi.SubscribeResponse) {
 
 		// Search for Updates
 		for _, upd := range nf.GetUpdate() {
-			path, _ := ygot.PathToSchemaPath(upd.Path)
+			path, _ := ygot.PathToSchemaPath(upd.GetPath())
 			fullPath := pfx + path
 			for xPath, plug := range c.xPaths {
 				if strings.HasPrefix(fullPath, xPath) {
@@ -352,35 +353,38 @@ func (c *GnmiClient) routeSr(sr *gnmi.SubscribeResponse) {
 // NOTE: the deprecated "element" field is not supported
 func (c *GnmiClient) removeDmPfxFromPath(nf *gnmi.Notification) {
 	// Sanitize Prefix
-	if nf.Prefix != nil && len(nf.Prefix.Elem) > 0 {
-		splitted := strings.SplitAfter(nf.Prefix.Elem[0].Name, ":")
+	if pfx := nf.GetPrefix(); len(pfx.GetElem()) > 0 {
+		splitted := strings.SplitAfter(pfx.Elem[0].Name, ":")
 		if len(splitted) == 2 {
-			nf.Prefix.Elem[0].Name = splitted[1]
+			pfx.Elem[0].Name = splitted[1]
 		}
 	}
 
 	// Sanitize updates
-	for i := 0; i < len(nf.Update); i++ {
-		if nf.Update[i] != nil && nf.Update[i].Path != nil && len(nf.Update[i].Path.Elem) > 0 {
-			splitted := strings.SplitAfter(nf.Update[i].Path.Elem[0].Name, ":")
+	for _, upd := range nf.GetUpdate() {
+		if upd == nil {
+			continue
+		}
+		if path := upd.GetPath(); len(path.GetElem()) > 0 {
+			splitted := strings.SplitAfter(path.Elem[0].Name, ":")
 			if len(splitted) == 2 {
-				nf.Update[i].Path.Elem[0].Name = splitted[1]
+				path.Elem[0].Name = splitted[1]
 			}
 		}
 	}
 
 	// Sanitize deletes
-	for i := 0; i < len(nf.Delete); i++ {
-		if len(nf.Delete[i].Elem) > 0 {
-			splitted := strings.SplitAfter(nf.Delete[i].Elem[0].Name, ":")
+	for _, del := range nf.GetDelete() {
+		if len(del.GetElem()) > 0 {
+			splitted := strings.SplitAfter(del.Elem[0].Name, ":")
 			if len(splitted) == 2 {
-				nf.Delete[i].Elem[0].Name = splitted[1]
+				del.Elem[0].Name = splitted[1]
 			}
 		}
 	}
 }
 
-// run is the main loop for gNMI worker thread. It establishes a connection to the target
+// run is the main loop for the gNMI worker thread. It establishes a connection to the target
 // device using the specified dial options, checks the device capabilities, subscribes to
 // gNMI telemetry, and continuously receives the gNMI stream. It runs until the context is
 // canceled or an error occurs.
@@ -395,7 +399,7 @@ func (c *GnmiClient) run(ctx context.Context) {
 	var maxLifeExpired bool
 	var sessionTimer *time.Timer
 
-	// Setup dial options
+	// Set up dial options
 	dialOpts, err = c.newDialOptions()
 	if err != nil {
 		log.Error(err)
@@ -403,7 +407,7 @@ func (c *GnmiClient) run(ctx context.Context) {
 		return
 	}
 
-	// Setup target ip address
+	// Set up target ip address
 	var targetDev string
 	if net.ParseIP(c.config.IPAddress) != nil {
 		targetDev = fmt.Sprintf("%s:%s", c.config.IPAddress, c.config.Port)
@@ -470,7 +474,7 @@ func (c *GnmiClient) run(ctx context.Context) {
 		}
 
 		// Subscribe
-		log.Infof("Subscribing gNMI telemetries to %s...", c.config.DevName)
+		log.Infof("Subscribing gnmi telemetries to %s...", c.config.DevName)
 		sub, err = c.subscribe(ctx, stub)
 		if err != nil {
 			log.Info(err)

@@ -1,12 +1,11 @@
 package plugins
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"reflect"
 	"sync"
 
-	// Local packages
 	"github.com/automixer/gtexporter/pkg/exporter"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // pmCounters represents a set of performance monitoring counters for a generic parser instance.

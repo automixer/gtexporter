@@ -4,7 +4,7 @@ devices:
   - name: DEVICE1
     # etc...
 
-    # Plugin related keys:
+    # Plugin-related keys:
     plugins: ["<comma separated plugin list>"]
     options:
       option1: "option1 value"

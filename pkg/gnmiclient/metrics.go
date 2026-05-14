@@ -1,10 +1,8 @@
 package gnmiclient
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-
-	// Local packages
 	"github.com/automixer/gtexporter/pkg/exporter"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // smMetric represents a metric used to monitor a single client instance.

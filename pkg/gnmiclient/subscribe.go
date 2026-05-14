@@ -2,6 +2,7 @@ package gnmiclient
 
 import (
 	"context"
+
 	log "github.com/golang/glog"
 	"github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ygot/ygot"
@@ -43,7 +44,7 @@ func (c *GnmiClient) subscribe(ctx context.Context, stub gnmi.GNMIClient) (gnmi.
 	return gNMISubClt, nil
 }
 
-// newSubList creates a list with a single subscriptions for all the configured plugins.
+// newSubList creates a list with a single subscription for all the configured plugins.
 // This is the default way for subscribing telemetries.
 func (c *GnmiClient) newSubList() []*gnmi.SubscriptionList {
 	var subs []*gnmi.Subscription
@@ -73,6 +74,12 @@ func (c *GnmiClient) newSubList() []*gnmi.SubscriptionList {
 		}
 	}
 
+	// Cisco IOS XE 17.9.5 rejects UpdatesOnly=true; force it off regardless of config.
+	updatesOnly := c.config.GnmiUpdatesOnly
+	if c.config.Vendor == "cisco-iosxe" {
+		updatesOnly = false
+	}
+
 	// One subscription list per device
 	subLists = append(subLists, &gnmi.SubscriptionList{
 		Prefix:           nil,
@@ -82,7 +89,7 @@ func (c *GnmiClient) newSubList() []*gnmi.SubscriptionList {
 		AllowAggregation: false,
 		UseModels:        nil,
 		Encoding:         c.encoding,
-		UpdatesOnly:      c.config.GnmiUpdatesOnly,
+		UpdatesOnly:      updatesOnly,
 	})
 
 	return subLists

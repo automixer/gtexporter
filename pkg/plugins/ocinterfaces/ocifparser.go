@@ -3,15 +3,14 @@ package ocinterfaces
 import (
 	"errors"
 	"fmt"
-	"github.com/openconfig/gnmi/proto/gnmi"
-	"github.com/openconfig/ygot/ygot"
 	"regexp"
 	"strconv"
 	"strings"
 
-	// Local packages
 	"github.com/automixer/gtexporter/pkg/datamodels/ysocif"
 	"github.com/automixer/gtexporter/pkg/plugins"
+	"github.com/openconfig/gnmi/proto/gnmi"
+	"github.com/openconfig/ygot/ygot"
 )
 
 const yStructInitialSize = 128
@@ -41,11 +40,11 @@ func newParser(cfg plugins.Config) (plugins.Parser, error) {
 	p.disableDeletes, _ = strconv.ParseBool(cfg.Options["disable_gnmi_delete"])
 
 	// Load parser self-monitoring
-	if err := p.ParserMon.Configure(cfg); err != nil {
+	if err := p.Configure(cfg); err != nil {
 		return nil, err
 	}
 
-	// Initialise the GoStruct and enum mapper
+	// Initialize the GoStruct and enum mapper
 	p.yStruct = &ysocif.Root{
 		Interface: make(map[string]*ysocif.Interface, yStructInitialSize),
 	}
@@ -85,7 +84,7 @@ func newParser(cfg plugins.Config) (plugins.Parser, error) {
 // It implements the plugin's parser interface
 func (p *ocIfParser) CheckOut() ygot.GoStruct {
 	if p.yStruct == nil {
-		panic(fmt.Sprint("yGot structure not initialized"))
+		panic("ygot structure not initialized")
 	}
 	return p.yStruct
 }
@@ -94,19 +93,29 @@ func (p *ocIfParser) CheckOut() ygot.GoStruct {
 // It is called by the plugin each time a GNMI notification is received.
 func (p *ocIfParser) ParseNotification(nf *gnmi.Notification) {
 	if p.yStruct == nil {
-		panic(fmt.Sprint("yGot structure not initialized"))
+		panic("ygot structure not initialized")
 	}
 
 	// Process GNMI delete messages
 	if !p.disableDeletes {
-		for _, gDelete := range nf.Delete {
-			p.removeDbEntry(nf.Prefix, gDelete)
+		for _, gDelete := range nf.GetDelete() {
+			p.removeDbEntry(nf.GetPrefix(), gDelete)
 		}
 	}
 
 	// Process GNMI update messages
-	for i, update := range nf.Update {
-		updHandler := p.updHandlerLookup(nf.Prefix, update.Path)
+	for i, update := range nf.GetUpdate() {
+		// Detect JSON container-level updates (e.g., JSON encoding)
+		jsonBytes := update.GetVal().GetJsonVal()
+		if len(jsonBytes) == 0 {
+			jsonBytes = update.GetVal().GetJsonIetfVal()
+		}
+		if len(jsonBytes) > 0 {
+			p.parseJsonUpdate(nf, i, jsonBytes)
+			continue
+		}
+		// Per-leaf scalar update (e.g., PROTO encoding)
+		updHandler := p.parseGPBUpdate(nf.GetPrefix(), update.GetPath())
 		if updHandler == nil {
 			continue
 		}
@@ -154,16 +163,10 @@ func (p *ocIfParser) removeDbEntry(pfx, path *gnmi.Path) {
 	}
 }
 
-// updHandlerLookup scans the provided prefix and path to find the proper handler for a given GNMI notification.
+// parseGPBUpdate scans the provided prefix and path to find the proper handler for a given GNMI notification.
 // It returns that handler to the caller.
-func (p *ocIfParser) updHandlerLookup(pfx, path *gnmi.Path) func(*gnmi.Notification, int) {
-	sPfx, _ := ygot.PathToSchemaPath(pfx)
-	sPath, _ := ygot.PathToSchemaPath(path)
-	var fullPath string
-	if len(sPfx) > 1 {
-		fullPath += sPfx
-	}
-	fullPath += sPath
+func (p *ocIfParser) parseGPBUpdate(pfx, path *gnmi.Path) func(*gnmi.Notification, int) {
+	fullPath := plugins.BuildSchemaPath(pfx, path)
 	leafIndex := strings.LastIndex(fullPath, "/")
 	if leafIndex == -1 {
 		p.InvalidPath()
@@ -188,32 +191,253 @@ func (p *ocIfParser) updHandlerLookup(pfx, path *gnmi.Path) func(*gnmi.Notificat
 	return nil
 }
 
+// ifStateCounters parses the content of the /interface/state/counters YANG container
+func (p *ocIfParser) ifStateCounters(nf *gnmi.Notification, updNum int) {
+	pathMeta, err := p.getPathMeta(nf.GetPrefix(), nf.GetUpdate()[updNum].GetPath())
+	if err != nil {
+		p.InvalidPath()
+		return
+	}
+	if !p.rxName.MatchString(pathMeta.ifName) || !p.ensureInterface(pathMeta.ifName) {
+		return
+	}
+	source := nf.GetUpdate()[updNum].GetVal()
+	target := p.yStruct.Interface[pathMeta.ifName].Counters
+	switch pathMeta.leafName {
+	case "carrier-transitions":
+		target.CarrierTransitions = new(source.GetUintVal())
+	case "in-broadcast-pkts":
+		target.InBroadcastPkts = new(source.GetUintVal())
+	case "in-discards":
+		target.InDiscards = new(source.GetUintVal())
+	case "in-errors":
+		target.InErrors = new(source.GetUintVal())
+	case "in-fcs-errors":
+		target.InFcsErrors = new(source.GetUintVal())
+	case "in-multicast-pkts":
+		target.InMulticastPkts = new(source.GetUintVal())
+	case "in-octets":
+		target.InOctets = new(source.GetUintVal())
+	case "in-pkts":
+		target.InPkts = new(source.GetUintVal())
+	case "in-unicast-pkts":
+		target.InUnicastPkts = new(source.GetUintVal())
+	case "in-unknown-protos":
+		target.InUnknownProtos = new(source.GetUintVal())
+	case "last-clear":
+		target.LastClear = new(source.GetUintVal())
+	case "out-broadcast-pkts":
+		target.OutBroadcastPkts = new(source.GetUintVal())
+	case "out-discards":
+		target.OutDiscards = new(source.GetUintVal())
+	case "out-errors":
+		target.OutErrors = new(source.GetUintVal())
+	case "out-multicast-pkts":
+		target.OutMulticastPkts = new(source.GetUintVal())
+	case "out-octets":
+		target.OutOctets = new(source.GetUintVal())
+	case "out-pkts":
+		target.OutPkts = new(source.GetUintVal())
+	case "out-unicast-pkts":
+		target.OutUnicastPkts = new(source.GetUintVal())
+	case "resets":
+		target.Resets = new(source.GetUintVal())
+	default:
+		p.LeafNotFound()
+	}
+}
+
+// ifState parses the content of the /interface/state YANG container
+func (p *ocIfParser) ifState(nf *gnmi.Notification, updNum int) {
+	pathMeta, err := p.getPathMeta(nf.GetPrefix(), nf.GetUpdate()[updNum].GetPath())
+	if err != nil {
+		p.InvalidPath()
+		return
+	}
+	if !p.rxName.MatchString(pathMeta.ifName) || !p.ensureInterface(pathMeta.ifName) {
+		return
+	}
+	source := nf.GetUpdate()[updNum].GetVal()
+	target := p.yStruct.Interface[pathMeta.ifName]
+	switch pathMeta.leafName {
+	case "admin-status":
+		target.AdminStatus = ysocif.E_Interface_AdminStatus(
+			p.eMapper.GetEnumFromString(source.GetStringVal(), target.AdminStatus))
+	case "cpu":
+		target.Cpu = new(source.GetBoolVal())
+	case "description":
+		target.Description = new(p.sanitizeDescription(source.GetStringVal()))
+	case "enabled":
+		target.Enabled = new(source.GetBoolVal())
+	case "ifindex":
+		target.Ifindex = new(uint32(source.GetUintVal()))
+	case "last-change":
+		target.LastChange = new(source.GetUintVal())
+	case "logical":
+		target.Logical = new(source.GetBoolVal())
+	case "loopback-mode":
+		target.LoopbackMode = ysocif.E_OpenconfigInterfaces_LoopbackModeType(
+			p.eMapper.GetEnumFromString(source.GetStringVal(), target.LoopbackMode))
+	case "management":
+		target.Management = new(source.GetBoolVal())
+	case "mtu":
+		target.Mtu = new(uint16(source.GetUintVal()))
+	case "name":
+		target.Name = new(source.GetStringVal())
+	case "oper-status":
+		target.OperStatus = ysocif.E_Interface_OperStatus(
+			p.eMapper.GetEnumFromString(source.GetStringVal(), target.OperStatus))
+	case "tpid":
+		// tpid isn't handled but present to avoid false LeafNotFound() counting
+	case "type":
+		target.Type = ysocif.E_IETFInterfaces_InterfaceType(
+			p.eMapper.GetEnumFromString(source.GetStringVal(), target.Type))
+	default:
+		p.LeafNotFound()
+	}
+}
+
+// ifAggState parses the content of the /interface/aggregation/state YANG container
+func (p *ocIfParser) ifAggState(nf *gnmi.Notification, updNum int) {
+	pathMeta, err := p.getPathMeta(nf.GetPrefix(), nf.GetUpdate()[updNum].GetPath())
+	if err != nil {
+		p.InvalidPath()
+		return
+	}
+	if !p.rxName.MatchString(pathMeta.ifName) || !p.ensureInterface(pathMeta.ifName) {
+		return
+	}
+	source := nf.GetUpdate()[updNum].GetVal()
+	target := p.yStruct.Interface[pathMeta.ifName].Aggregation
+	switch pathMeta.leafName {
+	case "lag-speed":
+		target.LagSpeed = new(uint32(source.GetUintVal()))
+	case "lag-type":
+		target.LagType = ysocif.E_OpenconfigIfAggregate_AggregationType(
+			p.eMapper.GetEnumFromString(source.GetStringVal(), target.LagType))
+	case "member":
+		memberList := source.GetLeaflistVal()
+		if memberList == nil {
+			return
+		}
+		for _, member := range memberList.Element {
+			target.Member = append(target.Member, member.GetStringVal())
+		}
+	case "min-links":
+		target.MinLinks = new(uint16(source.GetUintVal()))
+	default:
+		p.LeafNotFound()
+	}
+}
+
+// subIfStateCounters parses the content of the /interface/subinterfaces/subinterface/state/counters YANG container
+func (p *ocIfParser) subIfStateCounters(nf *gnmi.Notification, updNum int) {
+	pathMeta, err := p.getPathMeta(nf.GetPrefix(), nf.GetUpdate()[updNum].GetPath())
+	if err != nil {
+		p.InvalidPath()
+		return
+	}
+	if !p.rxName.MatchString(pathMeta.ifName) || !p.rxIndex.MatchString(fmt.Sprint(pathMeta.ifIndex)) ||
+		!p.ensureInterface(pathMeta.ifName) || !p.ensureSubinterface(pathMeta.ifName, pathMeta.ifIndex) {
+		return
+	}
+	source := nf.GetUpdate()[updNum].GetVal()
+	target := p.yStruct.Interface[pathMeta.ifName].Subinterface[pathMeta.ifIndex].Counters
+	switch pathMeta.leafName {
+	case "carrier-transitions":
+		target.CarrierTransitions = new(source.GetUintVal())
+	case "in-broadcast-pkts":
+		target.InBroadcastPkts = new(source.GetUintVal())
+	case "in-discards":
+		target.InDiscards = new(source.GetUintVal())
+	case "in-errors":
+		target.InErrors = new(source.GetUintVal())
+	case "in-fcs-errors":
+		target.InFcsErrors = new(source.GetUintVal())
+	case "in-multicast-pkts":
+		target.InMulticastPkts = new(source.GetUintVal())
+	case "in-octets":
+		target.InOctets = new(source.GetUintVal())
+	case "in-pkts":
+		target.InPkts = new(source.GetUintVal())
+	case "in-unicast-pkts":
+		target.InUnicastPkts = new(source.GetUintVal())
+	case "in-unknown-protos":
+		target.InUnknownProtos = new(source.GetUintVal())
+	case "last-clear":
+		target.LastClear = new(source.GetUintVal())
+	case "out-broadcast-pkts":
+		target.OutBroadcastPkts = new(source.GetUintVal())
+	case "out-discards":
+		target.OutDiscards = new(source.GetUintVal())
+	case "out-errors":
+		target.OutErrors = new(source.GetUintVal())
+	case "out-multicast-pkts":
+		target.OutMulticastPkts = new(source.GetUintVal())
+	case "out-octets":
+		target.OutOctets = new(source.GetUintVal())
+	case "out-pkts":
+		target.OutPkts = new(source.GetUintVal())
+	case "out-unicast-pkts":
+		target.OutUnicastPkts = new(source.GetUintVal())
+	default:
+		p.LeafNotFound()
+	}
+}
+
+// subIfState parses the content of the /interface/subinterfaces/subinterface/state YANG container
+func (p *ocIfParser) subIfState(nf *gnmi.Notification, updNum int) {
+	pathMeta, err := p.getPathMeta(nf.GetPrefix(), nf.GetUpdate()[updNum].GetPath())
+	if err != nil {
+		p.InvalidPath()
+		return
+	}
+	if !p.rxName.MatchString(pathMeta.ifName) || !p.rxIndex.MatchString(fmt.Sprint(pathMeta.ifIndex)) ||
+		!p.ensureInterface(pathMeta.ifName) || !p.ensureSubinterface(pathMeta.ifName, pathMeta.ifIndex) {
+		return
+	}
+	source := nf.GetUpdate()[updNum].GetVal()
+	target := p.yStruct.Interface[pathMeta.ifName].Subinterface[pathMeta.ifIndex]
+	switch pathMeta.leafName {
+	case "admin-status":
+		target.AdminStatus = ysocif.E_Interface_AdminStatus(
+			p.eMapper.GetEnumFromString(source.GetStringVal(), target.AdminStatus))
+	case "cpu":
+		target.Cpu = new(source.GetBoolVal())
+	case "description":
+		target.Description = new(p.sanitizeDescription(source.GetStringVal()))
+	case "enabled":
+		target.Enabled = new(source.GetBoolVal())
+	case "ifindex":
+		target.Ifindex = new(uint32(source.GetUintVal()))
+	case "index":
+		target.Index = new(uint32(source.GetUintVal()))
+	case "last-change":
+		target.LastChange = new(source.GetUintVal())
+	case "logical":
+		target.Logical = new(source.GetBoolVal())
+	case "management":
+		target.Management = new(source.GetBoolVal())
+	case "name":
+		target.Name = new(source.GetStringVal())
+	case "oper-status":
+		target.OperStatus = ysocif.E_Interface_OperStatus(
+			p.eMapper.GetEnumFromString(source.GetStringVal(), target.OperStatus))
+	default:
+		p.LeafNotFound()
+	}
+}
+
+// ============ Helpers ============
+
 // getPathMeta returns the path metadata from the given prefix and path.
 // It builds the full path as a slice of strings and then scans and extracts the metadata.
 func (p *ocIfParser) getPathMeta(pfx, path *gnmi.Path) (*pathMetadata, error) {
-	var fullPath []string
+	fullPath, err := plugins.BuildPathElems(pfx, path)
+	if err != nil {
+		return nil, err
+	}
 	out := &pathMetadata{}
-
-	// Build the full path as a slice of strings
-	if pfx != nil {
-		sPfx, err := ygot.PathToStrings(pfx)
-		if err != nil {
-			return nil, err
-		}
-		if len(sPfx) > 0 {
-			fullPath = append(fullPath, sPfx...)
-		}
-	}
-	if path != nil {
-		sPath, err := ygot.PathToStrings(path)
-		if err != nil {
-			return nil, err
-		}
-		fullPath = append(fullPath, sPath...)
-	}
-	if len(fullPath) < 2 {
-		return nil, errors.New("path too short")
-	}
 
 	// Scan fullPath and extract metadata
 	for _, elem := range fullPath {
@@ -250,312 +474,30 @@ func (p *ocIfParser) sanitizeDescription(s string) string {
 	return strings.Join(matches, "")
 }
 
-// ifStateCounters parses the content of the /interface/state/counters YANG container
-func (p *ocIfParser) ifStateCounters(nf *gnmi.Notification, updNum int) {
-	pathMeta, err := p.getPathMeta(nf.Prefix, nf.Update[updNum].Path)
+// ensureInterface creates the named interface in the yStruct if it does not already exist.
+// Returns false only when creation fails; the caller should return immediately in that case.
+func (p *ocIfParser) ensureInterface(ifName string) bool {
+	if _, ok := p.yStruct.Interface[ifName]; ok {
+		return true
+	}
+	newIf, err := p.yStruct.NewInterface(ifName)
 	if err != nil {
-		p.InvalidPath()
-		return
+		return false
 	}
-
-	// Name filtering
-	if !p.rxName.MatchString(pathMeta.ifName) {
-		return
-	}
-
-	// Create the interface if missing
-	if _, ok := p.yStruct.Interface[pathMeta.ifName]; !ok {
-		newIf, err := p.yStruct.NewInterface(pathMeta.ifName)
-		if err != nil {
-			return
-		}
-		newIf.PopulateDefaults()
-	}
-
-	source := nf.Update[updNum].Val
-	target := p.yStruct.Interface[pathMeta.ifName].Counters
-	switch pathMeta.leafName {
-	case "carrier-transitions":
-		target.CarrierTransitions = ygot.Uint64(source.GetUintVal())
-	case "in-broadcast-pkts":
-		target.InBroadcastPkts = ygot.Uint64(source.GetUintVal())
-	case "in-discards":
-		target.InDiscards = ygot.Uint64(source.GetUintVal())
-	case "in-errors":
-		target.InErrors = ygot.Uint64(source.GetUintVal())
-	case "in-fcs-errors":
-		target.InFcsErrors = ygot.Uint64(source.GetUintVal())
-	case "in-multicast-pkts":
-		target.InMulticastPkts = ygot.Uint64(source.GetUintVal())
-	case "in-octets":
-		target.InOctets = ygot.Uint64(source.GetUintVal())
-	case "in-pkts":
-		target.InPkts = ygot.Uint64(source.GetUintVal())
-	case "in-unicast-pkts":
-		target.InUnicastPkts = ygot.Uint64(source.GetUintVal())
-	case "in-unknown-protos":
-		target.InUnknownProtos = ygot.Uint64(source.GetUintVal())
-	case "last-clear":
-		target.LastClear = ygot.Uint64(source.GetUintVal())
-	case "out-broadcast-pkts":
-		target.OutBroadcastPkts = ygot.Uint64(source.GetUintVal())
-	case "out-discards":
-		target.OutDiscards = ygot.Uint64(source.GetUintVal())
-	case "out-errors":
-		target.OutErrors = ygot.Uint64(source.GetUintVal())
-	case "out-multicast-pkts":
-		target.OutMulticastPkts = ygot.Uint64(source.GetUintVal())
-	case "out-octets":
-		target.OutOctets = ygot.Uint64(source.GetUintVal())
-	case "out-pkts":
-		target.OutPkts = ygot.Uint64(source.GetUintVal())
-	case "out-unicast-pkts":
-		target.OutUnicastPkts = ygot.Uint64(source.GetUintVal())
-	case "resets":
-		target.Resets = ygot.Uint64(source.GetUintVal())
-	default:
-		p.LeafNotFound()
-	}
+	newIf.PopulateDefaults()
+	return true
 }
 
-// ifState parses the content of the /interface/state YANG container
-func (p *ocIfParser) ifState(nf *gnmi.Notification, updNum int) {
-	pathMeta, err := p.getPathMeta(nf.Prefix, nf.Update[updNum].Path)
+// ensureSubinterface creates the named subinterface in the yStruct if it does not already exist.
+// The parent interface must already exist. Returns false only when creation fails.
+func (p *ocIfParser) ensureSubinterface(ifName string, ifIndex uint32) bool {
+	if _, ok := p.yStruct.Interface[ifName].Subinterface[ifIndex]; ok {
+		return true
+	}
+	newSubIf, err := p.yStruct.Interface[ifName].NewSubinterface(ifIndex)
 	if err != nil {
-		p.InvalidPath()
-		return
+		return false
 	}
-
-	// Name filtering
-	if !p.rxName.MatchString(pathMeta.ifName) {
-		return
-	}
-
-	// Create the interface if missing
-	if _, ok := p.yStruct.Interface[pathMeta.ifName]; !ok {
-		newIf, err := p.yStruct.NewInterface(pathMeta.ifName)
-		if err != nil {
-			return
-		}
-		newIf.PopulateDefaults()
-	}
-
-	source := nf.Update[updNum].Val
-	target := p.yStruct.Interface[pathMeta.ifName]
-	switch pathMeta.leafName {
-	case "admin-status":
-		target.AdminStatus = ysocif.E_Interface_AdminStatus(
-			p.eMapper.GetEnumFromString(source.GetStringVal(), target.AdminStatus))
-	case "cpu":
-		target.Cpu = ygot.Bool(source.GetBoolVal())
-	case "description":
-		target.Description = ygot.String(p.sanitizeDescription(source.GetStringVal()))
-	case "enabled":
-		target.Enabled = ygot.Bool(source.GetBoolVal())
-	case "ifindex":
-		target.Ifindex = ygot.Uint32(uint32(source.GetUintVal()))
-	case "last-change":
-		target.LastChange = ygot.Uint64(source.GetUintVal())
-	case "logical":
-		target.Logical = ygot.Bool(source.GetBoolVal())
-	case "loopback-mode":
-		target.LoopbackMode = ysocif.E_OpenconfigInterfaces_LoopbackModeType(
-			p.eMapper.GetEnumFromString(source.GetStringVal(), target.LoopbackMode))
-	case "management":
-		target.Management = ygot.Bool(source.GetBoolVal())
-	case "mtu":
-		target.Mtu = ygot.Uint16(uint16(source.GetUintVal()))
-	case "name":
-		target.Name = ygot.String(source.GetStringVal())
-	case "oper-status":
-		target.OperStatus = ysocif.E_Interface_OperStatus(
-			p.eMapper.GetEnumFromString(source.GetStringVal(), target.OperStatus))
-	case "tpid":
-		// tpid isn't handled but present to avoid false LeafNotFound() counting
-	case "type":
-		target.Type = ysocif.E_IETFInterfaces_InterfaceType(
-			p.eMapper.GetEnumFromString(source.GetStringVal(), target.Type))
-	default:
-		p.LeafNotFound()
-	}
-}
-
-// ifAggState parses the content of the /interface/aggregation/state YANG container
-func (p *ocIfParser) ifAggState(nf *gnmi.Notification, updNum int) {
-	pathMeta, err := p.getPathMeta(nf.Prefix, nf.Update[updNum].Path)
-	if err != nil {
-		p.InvalidPath()
-		return
-	}
-
-	// Name filtering
-	if !p.rxName.MatchString(pathMeta.ifName) {
-		return
-	}
-
-	// Create the interface if missing
-	if _, ok := p.yStruct.Interface[pathMeta.ifName]; !ok {
-		newIf, err := p.yStruct.NewInterface(pathMeta.ifName)
-		if err != nil {
-			return
-		}
-		newIf.PopulateDefaults()
-	}
-
-	source := nf.Update[updNum].Val
-	target := p.yStruct.Interface[pathMeta.ifName].Aggregation
-	switch pathMeta.leafName {
-	case "lag-speed":
-		target.LagSpeed = ygot.Uint32(uint32(source.GetUintVal()))
-	case "lag-type":
-		target.LagType = ysocif.E_OpenconfigIfAggregate_AggregationType(
-			p.eMapper.GetEnumFromString(source.GetStringVal(), target.LagType))
-	case "member":
-		memberList := source.GetLeaflistVal()
-		for _, member := range memberList.Element {
-			target.Member = append(target.Member, member.GetStringVal())
-		}
-	case "min-links":
-		target.MinLinks = ygot.Uint16(uint16(source.GetUintVal()))
-	default:
-		p.LeafNotFound()
-	}
-}
-
-// subIfStateCounters parses the content of the /interface/subinterfaces/subinterface/state/counters YANG container
-func (p *ocIfParser) subIfStateCounters(nf *gnmi.Notification, updNum int) {
-	pathMeta, err := p.getPathMeta(nf.Prefix, nf.Update[updNum].Path)
-	if err != nil {
-		p.InvalidPath()
-		return
-	}
-
-	// Name and index filtering
-	if !p.rxName.MatchString(pathMeta.ifName) || !p.rxIndex.MatchString(fmt.Sprint(pathMeta.ifIndex)) {
-		return
-	}
-
-	// Create the interface if missing
-	if _, ok := p.yStruct.Interface[pathMeta.ifName]; !ok {
-		newIf, err := p.yStruct.NewInterface(pathMeta.ifName)
-		if err != nil {
-			return
-		}
-		newIf.PopulateDefaults()
-	}
-
-	// Create the subinterface if missing
-	if _, ok := p.yStruct.Interface[pathMeta.ifName].Subinterface[pathMeta.ifIndex]; !ok {
-		newSubIf, err := p.yStruct.Interface[pathMeta.ifName].NewSubinterface(pathMeta.ifIndex)
-		if err != nil {
-			return
-		}
-		newSubIf.PopulateDefaults()
-	}
-
-	source := nf.Update[updNum].Val
-	target := p.yStruct.Interface[pathMeta.ifName].Subinterface[pathMeta.ifIndex].Counters
-	switch pathMeta.leafName {
-	case "carrier-transitions":
-		target.CarrierTransitions = ygot.Uint64(source.GetUintVal())
-	case "in-broadcast-pkts":
-		target.InBroadcastPkts = ygot.Uint64(source.GetUintVal())
-	case "in-discards":
-		target.InDiscards = ygot.Uint64(source.GetUintVal())
-	case "in-errors":
-		target.InErrors = ygot.Uint64(source.GetUintVal())
-	case "in-fcs-errors":
-		target.InFcsErrors = ygot.Uint64(source.GetUintVal())
-	case "in-multicast-pkts":
-		target.InMulticastPkts = ygot.Uint64(source.GetUintVal())
-	case "in-octets":
-		target.InOctets = ygot.Uint64(source.GetUintVal())
-	case "in-pkts":
-		target.InPkts = ygot.Uint64(source.GetUintVal())
-	case "in-unicast-pkts":
-		target.InUnicastPkts = ygot.Uint64(source.GetUintVal())
-	case "in-unknown-protos":
-		target.InUnknownProtos = ygot.Uint64(source.GetUintVal())
-	case "last-clear":
-		target.LastClear = ygot.Uint64(source.GetUintVal())
-	case "out-broadcast-pkts":
-		target.OutBroadcastPkts = ygot.Uint64(source.GetUintVal())
-	case "out-discards":
-		target.OutDiscards = ygot.Uint64(source.GetUintVal())
-	case "out-errors":
-		target.OutErrors = ygot.Uint64(source.GetUintVal())
-	case "out-multicast-pkts":
-		target.OutMulticastPkts = ygot.Uint64(source.GetUintVal())
-	case "out-octets":
-		target.OutOctets = ygot.Uint64(source.GetUintVal())
-	case "out-pkts":
-		target.OutPkts = ygot.Uint64(source.GetUintVal())
-	case "out-unicast-pkts":
-		target.OutUnicastPkts = ygot.Uint64(source.GetUintVal())
-	default:
-		p.LeafNotFound()
-	}
-}
-
-// subIfState parses the content of the /interface/subinterfaces/subinterface/state YANG container
-func (p *ocIfParser) subIfState(nf *gnmi.Notification, updNum int) {
-	pathMeta, err := p.getPathMeta(nf.Prefix, nf.Update[updNum].Path)
-	if err != nil {
-		p.InvalidPath()
-		return
-	}
-
-	// Name and index filtering
-	if !p.rxName.MatchString(pathMeta.ifName) || !p.rxIndex.MatchString(fmt.Sprint(pathMeta.ifIndex)) {
-		return
-	}
-
-	// Create the interface if missing
-	if _, ok := p.yStruct.Interface[pathMeta.ifName]; !ok {
-		newIf, err := p.yStruct.NewInterface(pathMeta.ifName)
-		if err != nil {
-			return
-		}
-		newIf.PopulateDefaults()
-	}
-
-	// Create the subinterface if missing
-	if _, ok := p.yStruct.Interface[pathMeta.ifName].Subinterface[pathMeta.ifIndex]; !ok {
-		newSubIf, err := p.yStruct.Interface[pathMeta.ifName].NewSubinterface(pathMeta.ifIndex)
-		if err != nil {
-			return
-		}
-		newSubIf.PopulateDefaults()
-	}
-
-	source := nf.Update[updNum].Val
-	target := p.yStruct.Interface[pathMeta.ifName].Subinterface[pathMeta.ifIndex]
-	switch pathMeta.leafName {
-	case "admin-status":
-		target.AdminStatus = ysocif.E_Interface_AdminStatus(
-			p.eMapper.GetEnumFromString(source.GetStringVal(), target.AdminStatus))
-	case "cpu":
-		target.Cpu = ygot.Bool(source.GetBoolVal())
-	case "description":
-		target.Description = ygot.String(p.sanitizeDescription(source.GetStringVal()))
-	case "enabled":
-		target.Enabled = ygot.Bool(source.GetBoolVal())
-	case "ifindex":
-		target.Ifindex = ygot.Uint32(uint32(source.GetUintVal()))
-	case "index":
-		target.Index = ygot.Uint32(uint32(source.GetUintVal()))
-	case "last-change":
-		target.LastChange = ygot.Uint64(source.GetUintVal())
-	case "logical":
-		target.Logical = ygot.Bool(source.GetBoolVal())
-	case "management":
-		target.Management = ygot.Bool(source.GetBoolVal())
-	case "name":
-		target.Name = ygot.String(source.GetStringVal())
-	case "oper-status":
-		target.OperStatus = ysocif.E_Interface_OperStatus(
-			p.eMapper.GetEnumFromString(source.GetStringVal(), target.OperStatus))
-	default:
-		p.LeafNotFound()
-	}
+	newSubIf.PopulateDefaults()
+	return true
 }

@@ -2,19 +2,20 @@ package exporter
 
 import (
 	"errors"
-	"github.com/prometheus/client_golang/prometheus"
 	"reflect"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // GMetric is an interface that represents a generic metric.
-// User defined metrics must implement this interface
+// User-defined metrics must implement this interface
 type GMetric interface {
 	getCommons() MetricCommons
 	validate() error
 }
 
 // MetricCommons represents a common set of keys of a metric used in the application.
-// Metric sources must embed this structure into their user defined metrics
+// Metric sources must embed this structure into their user-defined metrics
 type MetricCommons struct {
 	Name   string // Name of the metric
 	Help   string // Help string for Prom metric description
@@ -41,7 +42,7 @@ func (m MetricCommons) validate() error {
 }
 
 // getLabelKeys retrieves the keys of the labeled fields in the provided GMetric object.
-// Fields key names from user defined metrics are extracted by this method using reflection and the "label" tag.
+// Fields key names from user-defined metrics are extracted by this method using reflection and the "label" tag.
 func getLabelKeys(m GMetric) []string {
 	rType := reflect.TypeOf(m)
 	labelKeys := make([]string, 0, rType.NumField())
@@ -57,7 +58,7 @@ func getLabelKeys(m GMetric) []string {
 }
 
 // getLabelValues retrieves the string values of the labeled fields in the provided GMetric object.
-// Fields key values from user defined metrics are extracted by this method using reflection and the "label" tag.
+// Fields key values from user-defined metrics are extracted by this method using reflection and the "label" tag.
 func getLabelValues(m GMetric) []string {
 	rType := reflect.TypeOf(m)
 	rValue := reflect.ValueOf(m)

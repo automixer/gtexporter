@@ -1,10 +1,8 @@
 package oclldp
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-
-	// Local packages
 	"github.com/automixer/gtexporter/pkg/exporter"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // ocLldpIfNbrMetric represents the Openconfig LLDP Interface Neighbors Metric.
@@ -13,10 +11,10 @@ import (
 // - Metric: Name of the metric.
 // - CustomLabel: Custom label associated with the metric.
 // - IfName: Local interface name.
-// - SystemName: Neighbour system name.
-// - PortId: Neighbour port ID.
-// - PortIdType: Neighbour port ID type.
-// - PortDescription: Neighbour port description.
+// - SystemName: Neighbor system name.
+// - PortId: Neighbor port ID.
+// - PortIdType: Neighbor port ID type.
+// - PortDescription: Neighbor port description.
 type ocLldpIfNbrMetric struct {
 	exporter.MetricCommons
 	Metric          string `label:"metric"`

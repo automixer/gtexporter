@@ -1,14 +1,12 @@
 package oclldp
 
 import (
-	log "github.com/golang/glog"
-	"github.com/openconfig/ygot/ygot"
-	"github.com/prometheus/client_golang/prometheus"
-
-	// Local packages
 	"github.com/automixer/gtexporter/pkg/datamodels/ysoclldp"
 	"github.com/automixer/gtexporter/pkg/exporter"
 	"github.com/automixer/gtexporter/pkg/plugins"
+	log "github.com/golang/glog"
+	"github.com/openconfig/ygot/ygot"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (
@@ -71,10 +69,19 @@ func (f *ocLldpFormatter) ScrapeEvent(ys ygot.GoStruct) func() {
 
 // lldpIfNbrGauges scans the yGot GoStruct and returns a slice of lldp/interface/neighbors metrics
 func (f *ocLldpFormatter) lldpIfNbrGauges() []exporter.GMetric {
-	out := make([]exporter.GMetric, 0, len(f.root.GetLldp().Interface))
+	if f.root == nil {
+		return nil
+	}
+
+	lldp := f.root.GetLldp()
+	if lldp == nil {
+		return nil
+	}
+
+	out := make([]exporter.GMetric, 0, len(lldp.Interface))
 	gauges := make(map[string]float64, 3)
 
-	for ifName, ifObject := range f.root.GetLldp().Interface {
+	for ifName, ifObject := range lldp.Interface {
 		for _, nbrObject := range ifObject.Neighbor {
 			// Read gauges values from GoStruct
 			gauges["age"] = float64(nbrObject.GetAge())

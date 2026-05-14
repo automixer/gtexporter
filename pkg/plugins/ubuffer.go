@@ -1,9 +1,10 @@
 package plugins
 
 import (
-	"github.com/openconfig/gnmi/proto/gnmi"
 	"sort"
 	"time"
+
+	"github.com/openconfig/gnmi/proto/gnmi"
 )
 
 // Constants
@@ -30,7 +31,7 @@ func newBuf(scrapeInt time.Duration) *uBuffer {
 }
 
 // add appends the given notification to the buffer if the uBuffer is not in noScrape state.
-// If the buffer doesn't get regularly checked out within the deadline, add discards the provided notification.
+// If the buffer doesn't get regularly checked out within the deadline, add discards to the provided notification.
 func (b *uBuffer) add(nf *gnmi.Notification) {
 	if b.noScrape {
 		return

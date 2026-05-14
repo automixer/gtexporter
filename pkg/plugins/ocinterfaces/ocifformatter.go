@@ -2,16 +2,15 @@ package ocinterfaces
 
 import (
 	"fmt"
-	log "github.com/golang/glog"
-	"github.com/openconfig/ygot/ygot"
-	"github.com/prometheus/client_golang/prometheus"
 	"strconv"
 	"strings"
 
-	// Local packages
 	"github.com/automixer/gtexporter/pkg/datamodels/ysocif"
 	"github.com/automixer/gtexporter/pkg/exporter"
 	"github.com/automixer/gtexporter/pkg/plugins"
+	log "github.com/golang/glog"
+	"github.com/openconfig/ygot/ygot"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const (

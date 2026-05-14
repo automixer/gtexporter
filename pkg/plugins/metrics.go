@@ -1,10 +1,8 @@
 package plugins
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
-
-	// Local packages
 	"github.com/automixer/gtexporter/pkg/exporter"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // smMetric is a struct used for self-monitoring tasks. It contains common fields inherited from

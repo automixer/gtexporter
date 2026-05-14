@@ -64,6 +64,14 @@ const (
 	ForceToZeroIfNil
 )
 
+// maxExactFloat64Int is the largest integer that float64 can represent exactly (2^53 − 1).
+// Masking uint64 counter-values against this constant prevents silent precision loss when
+// converting to float64: values above 2^53 lose LSBs, making consecutive samples round to
+// the same float64 and causing rate() to silently return zero.
+// The mask causes an artificial wrap at ~9 PB for octet counters, which Prometheus handles
+// identically to a real counter-reset via rate() / increase().
+const maxExactFloat64Int uint64 = 1<<53 - 1
+
 // GetCountersFromStruct extract a map of counters from a yang container of counters
 func GetCountersFromStruct(s any, mode CntMode) map[string]float64 {
 	if s == nil {
@@ -83,26 +91,25 @@ func GetCountersFromStruct(s any, mode CntMode) map[string]float64 {
 		switch mode {
 		case UseGoDefault:
 			if valPtr != nil {
-				out[fieldName] = float64(*valPtr)
+				out[fieldName] = float64(*valPtr & maxExactFloat64Int)
 			} else {
 				out[fieldName] = 0.0
 			}
 		case ForceToZeroIfNil:
 			if strings.HasPrefix(fieldName, "in-") || strings.HasPrefix(fieldName, "out-") {
 				if valPtr != nil {
-					out[fieldName] = float64(*valPtr)
+					out[fieldName] = float64(*valPtr & maxExactFloat64Int)
 				} else {
 					out[fieldName] = 0.0
 				}
 			} else {
-				// If not a counter, apply Normal policy
 				if valPtr != nil {
-					out[fieldName] = float64(*valPtr)
+					out[fieldName] = float64(*valPtr & maxExactFloat64Int)
 				}
 			}
 		default:
 			if valPtr != nil {
-				out[fieldName] = float64(*valPtr)
+				out[fieldName] = float64(*valPtr & maxExactFloat64Int)
 			}
 		}
 	}

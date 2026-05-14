@@ -1,0 +1,40 @@
+version: "2"
+
+formatters:
+  enable:
+    - gofmt          # formatting (report only, not auto-fix here)
+  exclusions:
+    generated: lax
+    paths:
+      - pkg/datamodels/   # skip ygot-generated code entirely
+
+linters:
+  default: none
+  enable:
+    - errcheck       # unchecked errors
+    - govet          # go vet checks
+    - ineffassign    # assignments to variables never used afterward
+    - staticcheck    # staticcheck SA/S/ST/QF checks
+    - unused         # unused code
+    - misspell       # common spelling mistakes in comments/strings
+    - nilerr         # returning nil when err != nil
+    - unconvert      # unnecessary type conversions
+    - whitespace     # leading/trailing blank lines
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - shadow         # too noisy in idiomatic Go
+        - fieldalignment # micro-optimization hint, not a correctness issue
+    staticcheck:
+      checks:
+        - "all"
+        - "-ST1000"   # no package-level doc comment required
+        - "-ST1003"   # mixed-caps names — ygot-generated code uses its own style
+        - "-ST1020"   # exported functions needn't have full doc comments
+        - "-ST1021"   # same for exported types
+        - "-ST1022"   # same for exported variables
+  exclusions:
+    generated: lax
+    paths:
+      - pkg/datamodels/   # skip ygot-generated code entirely

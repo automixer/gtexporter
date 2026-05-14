@@ -3,16 +3,15 @@ package core
 import (
 	"context"
 	"fmt"
-	log "github.com/golang/glog"
-	"gopkg.in/yaml.v2"
 	"os"
 
-	// Local packages
 	"github.com/automixer/gtexporter/pkg/exporter"
 	"github.com/automixer/gtexporter/pkg/gnmiclient"
 	"github.com/automixer/gtexporter/pkg/plugins"
+	log "github.com/golang/glog"
+	"gopkg.in/yaml.v2"
 
-	// Plugins registration
+	// Plugin registration
 	_ "github.com/automixer/gtexporter/pkg/plugins/ocinterfaces"
 	_ "github.com/automixer/gtexporter/pkg/plugins/oclldp"
 )

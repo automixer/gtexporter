@@ -2,16 +2,14 @@ package oclldp
 
 import (
 	"errors"
-	"fmt"
-	"github.com/openconfig/gnmi/proto/gnmi"
-	"github.com/openconfig/ygot/ygot"
 	"regexp"
 	"strconv"
 	"strings"
 
-	// Local packages
 	"github.com/automixer/gtexporter/pkg/datamodels/ysoclldp"
 	"github.com/automixer/gtexporter/pkg/plugins"
+	"github.com/openconfig/gnmi/proto/gnmi"
+	"github.com/openconfig/ygot/ygot"
 )
 
 const yStructInitialSize = 128
@@ -41,7 +39,7 @@ type ocLldpParser struct {
 func newParser(cfg plugins.Config) (plugins.Parser, error) {
 	p := &ocLldpParser{}
 	p.disableDeletes, _ = strconv.ParseBool(cfg.Options["disable_gnmi_delete"])
-	if err := p.ParserMon.Configure(cfg); err != nil {
+	if err := p.Configure(cfg); err != nil {
 		return nil, err
 	}
 	p.yStruct = &ysoclldp.Root{}
@@ -59,7 +57,7 @@ func newParser(cfg plugins.Config) (plugins.Parser, error) {
 // CheckOut returns the yGot structure.
 func (p *ocLldpParser) CheckOut() ygot.GoStruct {
 	if p.yStruct == nil {
-		panic(fmt.Sprint("yGot structure not initialized"))
+		panic("ygot structure not initialized")
 	}
 	return p.yStruct
 }
@@ -81,29 +79,11 @@ func (p *ocLldpParser) sanitizeDescription(s string) string {
 // The metadata includes the interface name, neighbor ID, and the name of the leaf node.
 // If any of the metadata is missing or the path is invalid, an error is returned.
 func (p *ocLldpParser) getPathMeta(pfx, path *gnmi.Path) (*pathMetadata, error) {
-	var fullPath []string
+	fullPath, err := plugins.BuildPathElems(pfx, path)
+	if err != nil {
+		return nil, err
+	}
 	out := &pathMetadata{}
-
-	// Build the full path as a slice of strings
-	if pfx != nil {
-		sPfx, err := ygot.PathToStrings(pfx)
-		if err != nil {
-			return nil, err
-		}
-		if len(sPfx) > 0 {
-			fullPath = append(fullPath, sPfx...)
-		}
-	}
-	if path != nil {
-		sPath, err := ygot.PathToStrings(path)
-		if err != nil {
-			return nil, err
-		}
-		fullPath = append(fullPath, sPath...)
-	}
-	if len(fullPath) < 2 {
-		return nil, errors.New("path too short")
-	}
 
 	// Scan fullPath and extract metadata
 	for _, elem := range fullPath {
@@ -132,19 +112,29 @@ func (p *ocLldpParser) getPathMeta(pfx, path *gnmi.Path) (*pathMetadata, error) 
 // ParseNotification analyzes a GNMI notification and calls the appropriate decoding method.
 func (p *ocLldpParser) ParseNotification(nf *gnmi.Notification) {
 	if p.yStruct == nil {
-		panic(fmt.Sprint("yGot structure not initialized"))
+		panic("ygot structure not initialized")
 	}
 
 	// Process GNMI delete messages
 	if !p.disableDeletes {
-		for _, gDelete := range nf.Delete {
-			p.removeDbEntry(nf.Prefix, gDelete)
+		for _, gDelete := range nf.GetDelete() {
+			p.removeDbEntry(nf.GetPrefix(), gDelete)
 		}
 	}
 
 	// Process GNMI update messages
-	for i, update := range nf.Update {
-		updHandler := p.updHandlerLookup(nf.Prefix, update.Path)
+	for i, update := range nf.GetUpdate() {
+		// Detect JSON container-level updates
+		jsonBytes := update.GetVal().GetJsonVal()
+		if len(jsonBytes) == 0 {
+			jsonBytes = update.GetVal().GetJsonIetfVal()
+		}
+		if len(jsonBytes) > 0 {
+			p.parseJsonUpdate(nf, i, jsonBytes)
+			continue
+		}
+		// Per-leaf scalar update (e.g., PROTO encoding)
+		updHandler := p.updHandlerLookup(nf.GetPrefix(), update.GetPath())
 		if updHandler == nil {
 			continue
 		}
@@ -161,26 +151,25 @@ func (p *ocLldpParser) removeDbEntry(pfx, path *gnmi.Path) {
 		return
 	}
 
-	if _, ok := p.yStruct.GetLldp().Interface[pathMeta.ifName]; ok {
-		p.yStruct.GetLldp().Interface[pathMeta.ifName].DeleteNeighbor(pathMeta.nbrId)
+	lldp := p.yStruct.GetLldp()
+	if lldp == nil {
+		return
+	}
+
+	if iface, ok := lldp.Interface[pathMeta.ifName]; ok {
+		iface.DeleteNeighbor(pathMeta.nbrId)
 	} else {
 		p.DeleteNotFound()
 	}
 
-	if len(p.yStruct.GetLldp().Interface) == 0 {
-		p.yStruct.GetLldp().DeleteInterface(pathMeta.ifName)
+	if len(lldp.Interface) == 0 {
+		lldp.DeleteInterface(pathMeta.ifName)
 	}
 }
 
 // updHandlerLookup returns the appropriate decoding handler based on the given prefix and path.
 func (p *ocLldpParser) updHandlerLookup(pfx, path *gnmi.Path) func(*gnmi.Notification, int) {
-	sPfx, _ := ygot.PathToSchemaPath(pfx)
-	sPath, _ := ygot.PathToSchemaPath(path)
-	var fullPath string
-	if len(sPfx) > 1 {
-		fullPath += sPfx
-	}
-	fullPath += sPath
+	fullPath := plugins.BuildSchemaPath(pfx, path)
 	leafIndex := strings.LastIndex(fullPath, "/")
 	if leafIndex == -1 {
 		p.InvalidPath()
@@ -200,7 +189,7 @@ func (p *ocLldpParser) updHandlerLookup(pfx, path *gnmi.Path) func(*gnmi.Notific
 // lldpIfNbState updates the yGot structure with the information from the GNMI update message for the
 // LLDP neighbor state.
 func (p *ocLldpParser) lldpIfNbState(nf *gnmi.Notification, updNum int) {
-	pathMeta, err := p.getPathMeta(nf.Prefix, nf.Update[updNum].Path)
+	pathMeta, err := p.getPathMeta(nf.GetPrefix(), nf.GetUpdate()[updNum].GetPath())
 	if err != nil {
 		p.InvalidPath()
 		return
@@ -226,37 +215,37 @@ func (p *ocLldpParser) lldpIfNbState(nf *gnmi.Notification, updNum int) {
 		newNbr.PopulateDefaults()
 	}
 	// Load the gnmi update into yGot struct
-	source := nf.Update[updNum].Val
+	source := nf.GetUpdate()[updNum].GetVal()
 	target := p.yStruct.GetLldp().Interface[pathMeta.ifName].Neighbor[pathMeta.nbrId]
 	switch pathMeta.leafName {
 	case "age":
-		target.Age = ygot.Uint64(source.GetUintVal())
+		target.Age = new(source.GetUintVal())
 	case "chassis-id":
-		target.ChassisId = ygot.String(source.GetStringVal())
+		target.ChassisId = new(source.GetStringVal())
 	case "chassis-id-type":
 		target.ChassisIdType = ysoclldp.E_OpenconfigLldp_ChassisIdType(
 			p.eMapper.GetEnumFromString(source.GetStringVal(), target.ChassisIdType))
 	case "id":
-		target.Id = ygot.String(source.GetStringVal())
+		target.Id = new(source.GetStringVal())
 	case "last-update":
-		target.LastUpdate = ygot.Int64(source.GetIntVal())
+		target.LastUpdate = new(source.GetIntVal())
 	case "management-address":
-		target.ManagementAddress = ygot.String(source.GetStringVal())
+		target.ManagementAddress = new(source.GetStringVal())
 	case "management-address-type":
-		target.ManagementAddressType = ygot.String(source.GetStringVal())
+		target.ManagementAddressType = new(source.GetStringVal())
 	case "port-description":
-		target.PortDescription = ygot.String(p.sanitizeDescription(source.GetStringVal()))
+		target.PortDescription = new(p.sanitizeDescription(source.GetStringVal()))
 	case "port-id":
-		target.PortId = ygot.String(source.GetStringVal())
+		target.PortId = new(source.GetStringVal())
 	case "port-id-type":
 		target.PortIdType = ysoclldp.E_OpenconfigLldp_PortIdType(
 			p.eMapper.GetEnumFromString(source.GetStringVal(), target.PortIdType))
 	case "system-description":
-		target.SystemDescription = ygot.String(source.GetStringVal())
+		target.SystemDescription = new(source.GetStringVal())
 	case "system-name":
-		target.SystemName = ygot.String(source.GetStringVal())
+		target.SystemName = new(source.GetStringVal())
 	case "ttl":
-		target.Ttl = ygot.Uint16(uint16(source.GetUintVal()))
+		target.Ttl = new(uint16(source.GetUintVal()))
 	default:
 		p.LeafNotFound()
 	}
