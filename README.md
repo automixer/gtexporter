@@ -40,7 +40,7 @@ Binaries are available for download [here](https://github.com/automixer/gtexport
 The mandatory argument is a config file: ```gtexporter-<OS>-<ARCH> -config <path/to/config/file>```.
 
 ### Build from sources
-Requires ```go 1.24.6``` or higher and ```make```.
+
 ```
 git clone https://github.com/automixer/gtexporter.git
 cd gtexporter
