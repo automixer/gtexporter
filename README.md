@@ -2,7 +2,6 @@
 ![GitHub License](https://img.shields.io/github/license/automixer/gtexporter)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/automixer/gtexporter/release.yaml)
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/automixer/gtexporter)
-[![Go Report Card](https://goreportcard.com/badge/github.com/automixer/gtexporter)](https://goreportcard.com/report/github.com/automixer/gtexporter)
 
 **GtExporter** is a tool for subscribing and exporting gNMI streaming telemetries to Prometheus in a YANG 
 "data-model-aware" way. The intended usage is to gather and store network devices' operational state metrics, 
