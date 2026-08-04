@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.7
 
 # Default as a fallback; will be overridden by build-arg from CI
-ARG GO_VERSION=1.26.2
+ARG GO_VERSION=1.26.5
 
 # Builder
 FROM golang:${GO_VERSION} AS builder
