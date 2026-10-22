@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	minScrapeInterval = time.Second
-	minSessionTTL     = 10 * time.Minute
+	minScrapeInterval   = time.Second
+	minSessionTTL       = 10 * time.Minute
+	maxReconnectBackoff = time.Minute
 )
 
 type yamlGlobalConfig struct {
@@ -204,6 +205,13 @@ func (c *Core) buildGnmiClientCfg(yCfg *yamlConfig, index int) {
 		maxLife = 0
 	}
 	newDev.MaxLife = maxLife
+	// Reconnect backoff (zero or invalid value -> default in the gNMI client)
+	reconnectBackoff, err := time.ParseDuration(src.Keys["reconnect_backoff_max"])
+	if err == nil && reconnectBackoff > maxReconnectBackoff {
+		log.Warningf("%s: reconnect_backoff_max cannot be greater than %s.", newDev.DevName, maxReconnectBackoff)
+		reconnectBackoff = maxReconnectBackoff
+	}
+	newDev.ReconnectBackoffMax = reconnectBackoff
 	// Plugin mode
 	switch src.Keys["mode"] {
 	case "cache":

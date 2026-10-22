@@ -151,6 +151,14 @@ The ```device:max_life``` config sets a time limit on the gNMI subscription. Whe
 session is torn down and re-established, forcing a cache flush event. This setting can be useful in keeping
 the GoStruct size under control.
 
+### Reconnection policy
+When a device becomes unreachable, **GtExporter** keeps trying to reconnect in background. The retry interval
+depends on the duration of the continuous outage: 10 seconds during the first 15 minutes, 30 seconds until one
+hour, then the value of the ```device:reconnect_backoff_max``` config key (default: 60s, hard capped at 60s).
+A short outage, like a router reboot, is therefore retried densely, while long maintenance windows degrade to
+at most one attempt per minute. The ```device_up``` gauge can be used to monitor the connection state of each
+device.
+
 ### The ```device:desc_sanitize``` setting
 Descriptions are user-defined strings contained into the device configuration. Since descriptions are often used as 
 Prometheus labels, not all characters are valid. The ```device:desc_sanitize``` config key is a regexp pattern

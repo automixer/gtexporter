@@ -63,6 +63,11 @@ devices:
                                     # establishes a new one. A gNMI subscription restart forces a cache flush.
                                     # This option can be used as a workaround if we want to enable Plugin cache mode
                                     # but the gNMI device does not support gNMI delete messages.
+    reconnect_backoff_max: 60s      # The maximum interval between two consecutive connection attempts toward an
+                                    # unreachable device. Defaults to 60s. Values greater than 60s are clamped to 60s.
+                                    # The actual retry interval also depends on the duration of the continuous outage:
+                                    # 10s if the device has been down for less than 15 minutes, 30s until one hour,
+                                    # then this value.
 
   # Another device.
   - name: DEVICE2
