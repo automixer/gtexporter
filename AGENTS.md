@@ -10,7 +10,7 @@ Prometheus metrics using YANG data models (yGot-generated Go structs). Multiple 
 are served concurrently: one `GnmiClient` per device, each running multiple schema plugins
 (one per group of YANG paths).
 
-Go 1.26. Entry point: `cmd/gtexporter/main.go` (requires `-config <file.yaml>`; `-version` prints build info).
+Go 1.27. Entry point: `cmd/gtexporter/main.go` (requires `-config <file.yaml>`; `-version` prints build info).
 
 ## Commands
 

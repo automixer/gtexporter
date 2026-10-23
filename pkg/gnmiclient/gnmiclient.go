@@ -20,13 +20,27 @@ import (
 	"google.golang.org/grpc/backoff"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/keepalive"
 )
 
 // Constants
 const (
-	timeoutMultiplier = 3
-	oversampling      = 2
-	srBufferSize      = 128
+	oversampling = 2
+	srBufferSize = 128
+
+	// Capability check timeout
+	capsTimeout = 30 * time.Second
+
+	// Reconnection policy: the retry interval depends on the continuous outage duration
+	retryIntervalShort      = 10 * time.Second
+	retryIntervalMid        = 30 * time.Second
+	retryBreakpointShort    = 15 * time.Minute
+	retryBreakpointMid      = time.Hour
+	defaultReconnectBackoff = 60 * time.Second
+
+	// Keepalive: bound the time needed to detect a silently dropped connection
+	kaPingTime    = 30 * time.Second
+	kaPingTimeout = 15 * time.Second
 )
 
 type plugin interface {
@@ -51,6 +65,7 @@ type Config struct {
 	DevName               string
 	ScrapeInterval        time.Duration
 	MaxLife               time.Duration
+	ReconnectBackoffMax   time.Duration
 	GnmiSubscriptionMode  gnmi.SubscriptionMode
 	GnmiUpdatesOnly       bool
 	OverSampling          int64
@@ -73,6 +88,9 @@ type GnmiClient struct {
 func New(cfg Config) (*GnmiClient, error) {
 	gClient := &GnmiClient{config: cfg}
 	gClient.xPathList = make(map[string][]string)
+	if gClient.config.ReconnectBackoffMax <= 0 {
+		gClient.config.ReconnectBackoffMax = defaultReconnectBackoff
+	}
 	if err := gClient.configure(cfg.DevName); err != nil {
 		return nil, err
 	}
@@ -146,7 +164,13 @@ func (c *GnmiClient) newDialOptions() ([]grpc.DialOption, error) {
 
 	// Backoff settings
 	opts = append(opts, grpc.WithConnectParams(grpc.ConnectParams{Backoff: backoff.DefaultConfig,
-		MinConnectTimeout: time.Second * 20}))
+		MinConnectTimeout: time.Second * 10}))
+
+	// Keepalive: bound the time needed to detect a silently dropped connection
+	opts = append(opts, grpc.WithKeepaliveParams(keepalive.ClientParameters{
+		Time:    kaPingTime,
+		Timeout: kaPingTimeout,
+	}))
 
 	// TLS
 	if c.config.TLS {
@@ -384,20 +408,40 @@ func (c *GnmiClient) removeDmPfxFromPath(nf *gnmi.Notification) {
 	}
 }
 
+// retryDelay returns the interval to wait before the next connection attempt,
+// based on how long the device has been continuously unreachable. Short outages
+// (e.g., a router reboot) are retried densely: only long-lasting ones fall back
+// to the configured ReconnectBackoffMax interval.
+func (c *GnmiClient) retryDelay(outage time.Duration) time.Duration {
+	switch {
+	case outage < retryBreakpointShort:
+		return retryIntervalShort
+	case outage < retryBreakpointMid:
+		return retryIntervalMid
+	default:
+		return c.config.ReconnectBackoffMax
+	}
+}
+
+// armOutage marks the beginning of a continuous outage period, if not already armed.
+func (c *GnmiClient) armOutage(outageStart *time.Time) {
+	if outageStart.IsZero() {
+		*outageStart = time.Now()
+	}
+}
+
 // run is the main loop for the gNMI worker thread. It establishes a connection to the target
 // device using the specified dial options, checks the device capabilities, subscribes to
 // gNMI telemetry, and continuously receives the gNMI stream. It runs until the context is
-// canceled or an error occurs.
+// canceled or an error occurs. Failed connection attempts are throttled by a retry interval
+// that depends on how long the device has been continuously unreachable.
 func (c *GnmiClient) run(ctx context.Context) {
 	var conn *grpc.ClientConn
 	var dialOpts []grpc.DialOption
 	var err error
 	var stub gnmi.GNMIClient
 	var sub gnmi.GNMI_SubscribeClient
-	var gCtx context.Context
-	var gCtxCancelFunc func()
-	var maxLifeExpired bool
-	var sessionTimer *time.Timer
+	var outageStart time.Time
 
 	// Set up dial options
 	dialOpts, err = c.newDialOptions()
@@ -415,39 +459,21 @@ func (c *GnmiClient) run(ctx context.Context) {
 		targetDev = fmt.Sprintf("dns:///%s:%s", c.config.IPAddress, c.config.Port)
 	}
 
-	// Setup session TTL timer
-	if c.config.MaxLife != 0 {
-		sessionTimer = time.AfterFunc(c.config.MaxLife, func() {
-			if gCtx != nil && conn != nil {
-				gCtxCancelFunc()
-				gCtx = nil
-				gCtxCancelFunc = nil
-				maxLifeExpired = true
-				_ = conn.Close()
-			}
-			sessionTimer.Reset(c.config.MaxLife)
-		})
-	}
-
 	// This is the gNMI worker thread main loop
 	for {
-		// Reconnecting?
-		if gCtxCancelFunc != nil {
-			<-gCtx.Done() // Wait deadline before retrying
-			gCtxCancelFunc()
-			_ = conn.Close()
+		// Throttle the connection attempt: the wait depends on how long
+		// the device has been continuously unreachable so far.
+		if !outageStart.IsZero() {
+			delay := min(c.retryDelay(time.Since(outageStart)), c.config.ReconnectBackoffMax)
+			select {
+			case <-time.After(delay):
+			case <-ctx.Done():
+			}
 		}
+
 		// Time to exit?
 		if ctx.Err() != nil {
-			if sessionTimer != nil {
-				sessionTimer.Stop()
-			}
 			break
-		}
-		// Reconnecting after MaxLife expired?
-		if maxLifeExpired {
-			maxLifeExpired = false
-			time.Sleep(100 * time.Millisecond)
 		}
 
 		// Dial
@@ -456,37 +482,69 @@ func (c *GnmiClient) run(ctx context.Context) {
 		if err != nil {
 			log.Info(err)
 			c.incDialErrors()
+			c.armOutage(&outageStart)
 			continue
 		}
 		stub = gnmi.NewGNMIClient(conn)
 
 		// Check capabilities
-		timeout := c.config.ScrapeInterval * timeoutMultiplier
-		if timeout > time.Minute*5 {
-			timeout = time.Minute * 5
-		}
-		gCtx, gCtxCancelFunc = context.WithTimeout(ctx, timeout)
+		capsCtx, capsCancel := context.WithTimeout(ctx, capsTimeout)
 		log.Infof("Checking %s capabilities...", c.config.DevName)
-		if err = c.checkCapabilities(gCtx, stub); err != nil {
+		err = c.checkCapabilities(capsCtx, stub)
+		capsCancel()
+		if err != nil {
 			log.Info(err)
 			c.incCheckCapsErrors()
+			_ = conn.Close()
+			c.armOutage(&outageStart)
 			continue
 		}
 
 		// Subscribe
+		streamCtx, streamCancel := context.WithCancel(ctx)
 		log.Infof("Subscribing gnmi telemetries to %s...", c.config.DevName)
-		sub, err = c.subscribe(ctx, stub)
+		sub, err = c.subscribe(streamCtx, stub)
 		if err != nil {
 			log.Info(err)
 			c.incSubscribeErrors()
+			streamCancel()
+			_ = conn.Close()
+			c.armOutage(&outageStart)
 			continue
+		}
+
+		// The session is established: reset the outage clock,
+		// then arm the optional max_life session timer.
+		outageStart = time.Time{}
+		c.setDeviceUp(true)
+		var sessionTimer *time.Timer
+		if c.config.MaxLife != 0 {
+			sessionTimer = time.AfterFunc(c.config.MaxLife, streamCancel)
 		}
 
 		// Receive gNMI stream (blocking)
 		log.Infof("Device %s is now online...", c.config.DevName)
-		if err = c.receive(sub); err != nil {
+		err = c.receive(sub)
+
+		// Planned max_life recycle? (the session timer is the only other thing
+		// that can cancel streamCtx while the parent context is still alive)
+		plannedRecycle := streamCtx.Err() != nil && ctx.Err() == nil
+
+		// Session teardown
+		if sessionTimer != nil {
+			sessionTimer.Stop()
+		}
+		streamCancel()
+		c.setDeviceUp(false)
+		if err != nil {
 			log.Error(err)
 			c.incDisconnections()
+		}
+		if plannedRecycle {
+			// No backoff penalty on planned recycles
+			time.Sleep(100 * time.Millisecond)
+		} else {
+			c.armOutage(&outageStart)
 		}
 	}
 }

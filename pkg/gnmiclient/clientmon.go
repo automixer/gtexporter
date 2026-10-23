@@ -32,8 +32,10 @@ type cmCounters struct {
 // cmGauges represents the gauges of a client instance.
 // It includes the following fields:
 // - NfBufUsagePC: gauge for the percentage of fullness of the notification buffer.
+// - DeviceUp: gauge for the connection state of the device (1: online, 0: offline).
 type cmGauges struct {
 	NfBufUsagePC uint64 `label:"notification_buf_usage_pc"`
+	DeviceUp     uint64 `label:"device_up"`
 }
 
 type clientMon struct {
@@ -128,5 +130,16 @@ func (m *clientMon) srBufSize(size int) {
 	// Only record peak usage
 	if currValue > m.gauges.NfBufUsagePC {
 		m.gauges.NfBufUsagePC = currValue
+	}
+}
+
+// setDeviceUp updates the device_up gauge with the current connection state (true: online).
+func (m *clientMon) setDeviceUp(up bool) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	if up {
+		m.gauges.DeviceUp = 1
+	} else {
+		m.gauges.DeviceUp = 0
 	}
 }
